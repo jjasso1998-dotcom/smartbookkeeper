@@ -840,26 +840,56 @@ function runAnalysis() {
     [62, 'Detecting patterns…'],
     [78, 'Building P&L…'],
     [90, 'Flagging checkup items…'],
-    [100, 'Analysis complete!'],
   ];
 
   let i = 0;
   const interval = setInterval(() => {
-    if (i >= steps.length) {
-      clearInterval(interval);
-      setTimeout(showResults, 300);
-      return;
-    }
+    if (i >= steps.length) { clearInterval(interval); return; }
     const [pct, msg] = steps[i];
     fill.style.width = pct + '%';
     label.textContent = pct + '%';
     statusEl.textContent = msg;
-    subEl.textContent = 'Using AI categorization engine';
+    subEl.textContent = 'Using Claude AI';
     i++;
-  }, 420);
+  }, 600);
+
+  const doAnalysis = (csvText) => {
+    fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csvText: csvText || null })
+    })
+    .then(r => { if (!r.ok) throw new Error('API error ' + r.status); return r.json(); })
+    .then(data => {
+      clearInterval(interval);
+      fill.style.width = '100%';
+      label.textContent = '100%';
+      statusEl.textContent = 'Analysis complete!';
+      setTimeout(() => showResults(data), 300);
+    })
+    .catch(err => {
+      clearInterval(interval);
+      btn.disabled = false;
+      btn.textContent = '✦ Analyze with AI';
+      progress.classList.remove('active');
+      showToast('⚠ Analysis failed — ' + err.message);
+    });
+  };
+
+  const csvInput = document.querySelector('#uc-csv input[type=file]');
+  const bankInput = document.querySelector('#uc-bank input[type=file]');
+  const file = (csvInput && csvInput.files[0]) || (bankInput && bankInput.files[0]);
+
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = e => doAnalysis(e.target.result);
+    reader.readAsText(file);
+  } else {
+    doAnalysis(null);
+  }
 }
 
-function showResults() {
+function showResults(data) {
   analyzed = true;
   const progress = document.getElementById('ai-progress');
   const btn = document.getElementById('analyze-btn');
@@ -869,14 +899,19 @@ function showResults() {
   progress.classList.remove('active');
   btn.textContent = '✦ Re-analyze';
   btn.disabled = false;
-  statusEl.textContent = '18 transactions categorized · 2 items flagged for checkup';
-  subEl.textContent = 'AI confidence: 96% · October 2024';
 
-  // Metrics
-  const revenue = 42450;
-  const expenses = 22279;
-  const net = revenue - expenses;
-  const taxEst = Math.round(net * 0.22);
+  const txns = data.transactions || [];
+  const flags = data.flags || [];
+  statusEl.textContent = txns.length + ' transactions categorized · ' + flags.length + ' items flagged for checkup';
+  subEl.textContent = 'AI confidence: ' + (data.confidence || 96) + '% · ' + (data.month || 'This Month');
+
+  const s = data.summary || {};
+  const revenue = s.revenue || 0;
+  const expenses = Math.abs(s.expenses || 0);
+  const net = s.netIncome || (revenue - expenses);
+  const taxEst = s.taxEstimate || Math.round(net * 0.22);
+
+  const fmt = n => '$' + Math.abs(Math.round(n)).toLocaleString();
 
   const show = (id, val, delta, cls) => {
     const card = document.getElementById(id);
@@ -886,38 +921,32 @@ function showResults() {
     setTimeout(() => card.classList.add('visible'), 50);
   };
 
-  setTimeout(() => show('mc-revenue', '$42,450', '↑ 12% vs Sep', 'positive'), 100);
-  setTimeout(() => show('mc-expenses', '$22,279', '↓ 3% vs Sep', 'negative'), 200);
+  setTimeout(() => show('mc-revenue', fmt(revenue), '', 'positive'), 100);
+  setTimeout(() => show('mc-expenses', fmt(expenses), '', 'negative'), 200);
   setTimeout(() => {
-    show('mc-net', '$20,171', '↑ 31% vs Sep', 'positive');
-    document.getElementById('mc-net-val').style.color = 'var(--moss)';
+    show('mc-net', fmt(net), '', net >= 0 ? 'positive' : 'negative');
+    document.getElementById('mc-net-val').style.color = net >= 0 ? 'var(--moss)' : 'var(--red)';
   }, 300);
-  setTimeout(() => show('mc-tax', '~$4,437', '', ''), 400);
+  setTimeout(() => show('mc-tax', '~' + fmt(taxEst), '', ''), 400);
 
-  // Transactions
-  renderTransactions();
+  renderTransactions(txns);
+  renderPL(revenue, expenses, net, txns);
+  renderCPAFlags(flags);
 
-  // P&L
-  renderPL(revenue, expenses, net);
-
-  // CPA flags
-  renderCPAFlags();
-
-  // Show panels
   setTimeout(() => {
     document.getElementById('panel-transactions').classList.add('visible');
     document.getElementById('panel-pl').classList.add('visible');
     document.getElementById('panel-cpa').classList.add('visible');
   }, 500);
 
-  showToast('✦ Analysis complete — 18 transactions categorized');
+  showToast('✦ Analysis complete — ' + txns.length + ' transactions categorized');
 }
 
-function renderTransactions() {
+function renderTransactions(transactions) {
   const tbody = document.getElementById('txn-body');
-  document.getElementById('txn-count').textContent = '(' + DEMO_TRANSACTIONS.length + ')';
+  document.getElementById('txn-count').textContent = '(' + transactions.length + ')';
 
-  const rows = DEMO_TRANSACTIONS.map(t => {
+  const rows = transactions.map(t => {
     const neg = t.amount < 0;
     const fmt = (neg ? '-$' : '+$') + Math.abs(t.amount).toLocaleString();
     return `<tr>
@@ -926,7 +955,7 @@ function renderTransactions() {
         ${t.desc}
         <span class="ai-tag">✦ AI</span>
       </td>
-      <td><span class="cat-pill ${CAT_CLASSES[t.cat]}">${CAT_LABELS[t.cat]}</span></td>
+      <td><span class="cat-pill ${CAT_CLASSES[t.cat] || 'cat-misc'}">${CAT_LABELS[t.cat] || t.cat}</span></td>
       <td class="amount ${neg?'neg':'pos'}">${fmt}</td>
     </tr>`;
   }).join('');
@@ -939,12 +968,16 @@ function renderTransactions() {
   </table>`;
 }
 
-function renderPL(revenue, expenses, net) {
-  const expenseBreakdown = [
-    ['Payroll', 19200], ['Materials & Supplies', 3629], ['Subcontractors', 2100],
-    ['Travel & Fuel', 800], ['Insurance', 1240], ['Software', 73], ['Meals & Ent.', 147],
-  ];
-  const totalExp = expenseBreakdown.reduce((s,[,v]) => s+v, 0);
+function renderPL(revenue, expenses, net, transactions) {
+  const breakdown = {};
+  (transactions || []).forEach(t => {
+    if (t.amount < 0) {
+      const label = CAT_LABELS[t.cat] || t.cat || 'Other';
+      breakdown[label] = (breakdown[label] || 0) + Math.abs(t.amount);
+    }
+  });
+  const expenseBreakdown = Object.entries(breakdown);
+  const totalExp = expenseBreakdown.reduce((s,[,v]) => s+v, 0) || expenses;
 
   const row = (label, amt, cls='', indent=false) => `
     <div class="pl-row ${cls}">
@@ -969,29 +1002,27 @@ function renderPL(revenue, expenses, net) {
   document.getElementById('pl-status').className = 'status-badge status-done';
 }
 
-function renderCPAFlags() {
-  document.getElementById('cpa-flags').innerHTML = `
-    <div class="cpa-flag">
-      <div class="flag-icon">⚑</div>
+function renderCPAFlags(flags) {
+  if (!flags || !flags.length) {
+    document.getElementById('cpa-flags').innerHTML = `
+      <div class="cpa-flag info">
+        <div class="flag-icon">ℹ</div>
+        <div class="flag-text">
+          <div class="flag-label info">No flags</div>
+          No items flagged for review this period.
+        </div>
+      </div>`;
+    return;
+  }
+  const iconMap = { warning: '⚑', info: 'ℹ', opportunity: '★' };
+  document.getElementById('cpa-flags').innerHTML = flags.map(f => `
+    <div class="cpa-flag ${f.type === 'info' ? 'info' : ''}">
+      <div class="flag-icon">${iconMap[f.type] || '⚑'}</div>
       <div class="flag-text">
-        <div class="flag-label">Checkup Recommended</div>
-        Oct 24 subcontractor payment to Martinez Co. ($2,100) — confirm 1099 requirement if annual total exceeds $600.
+        <div class="flag-label ${f.type === 'info' ? 'info' : ''}">${f.label}</div>
+        ${f.detail}
       </div>
-    </div>
-    <div class="cpa-flag">
-      <div class="flag-icon">⚑</div>
-      <div class="flag-text">
-        <div class="flag-label">Deduction Opportunity</div>
-        Oct 14 client meal ($147) — ensure business purpose is documented for IRS substantiation.
-      </div>
-    </div>
-    <div class="cpa-flag info">
-      <div class="flag-icon">ℹ</div>
-      <div class="flag-text">
-        <div class="flag-label info">Tax Liability Estimate</div>
-        Based on $20,171 net income, estimated quarterly tax of ~$4,437. Upgrade for full estimate with deduction optimization.
-      </div>
-    </div>`;
+    </div>`).join('');
 }
 
 // ── Report tab switcher ──
