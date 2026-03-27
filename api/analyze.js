@@ -1,9 +1,11 @@
 module.exports = async function handler(req, res) {
+  console.log('analyze function called, method:', req.method);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  console.log('API key present:', !!process.env.ANTHROPIC_API_KEY);
 
   const { csvText } = req.body || {};
 
@@ -82,7 +84,7 @@ Oct 31 - Mileage Reimbursement - $180 paid`;
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: 'claude-3-5-haiku-20241022',
         max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }]
@@ -91,6 +93,7 @@ Oct 31 - Mileage Reimbursement - $180 paid`;
 
     if (!response.ok) {
       const err = await response.text();
+      console.error('Anthropic error:', err);
       return res.status(500).json({ error: 'Anthropic API error', detail: err });
     }
 
@@ -103,6 +106,7 @@ Oct 31 - Mileage Reimbursement - $180 paid`;
 
     res.status(200).json(result);
   } catch (err) {
+    console.error('Caught error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }
