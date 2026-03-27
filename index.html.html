@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartBookkeeper — Smart Bookkeeping</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a18;
+    --ink-2: #3d3d38;
+    --ink-3: #7a7a72;
+    --paper: #f7f5f0;
+    --paper-2: #edeae2;
+    --paper-3: #e0ddd4;
+    --moss: #2d5a3d;
+    --moss-light: #e8f0eb;
+    --moss-mid: #4a8c60;
+    --amber: #c47f2a;
+    --amber-light: #fdf3e3;
+    --red: #b84040;
+    --red-light: #fbeaea;
+    --blue: #2a5c8c;
+    --blue-light: #e8f0f7;
+    --rule: rgba(26,26,24,0.1);
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-body: 'Instrument Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius: 4px;
+    --radius-lg: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    --shadow-lg: 0 2px 8px rgba(0,0,0,0.10), 0 12px 40px rgba(0,0,0,0.08);
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ── Layout ── */
+  .shell { display: flex; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--ink);
+    color: var(--paper);
+    display: flex;
+    flex-direction: column;
+    padding: 28px 0;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+  }
+  .logo {
+    padding: 0 24px 28px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .logo-mark {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+  .logo-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .nav { padding: 20px 0; flex: 1; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 24px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.04); }
+  .nav-item.active { color: #fff; background: rgba(255,255,255,0.07); border-left-color: #7fc49a; }
+  .nav-icon { width: 16px; text-align: center; font-size: 14px; opacity: 0.7; }
+  .nav-section { padding: 16px 24px 6px; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.2); }
+  .sidebar-footer {
+    padding: 20px 24px 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .client-badge {
+    background: rgba(255,255,255,0.07);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .client-name { font-weight: 600; color: #fff; font-size: 13px; }
+  .client-plan { color: rgba(255,255,255,0.35); font-size: 11px; margin-top: 1px; }
+
+  /* ── Main ── */
+  .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+
+  /* ── Topbar ── */
+  .topbar {
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+    padding: 16px 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar-title { font-family: var(--font-display); font-size: 21px; letter-spacing: -0.01em; }
+  .topbar-meta { font-size: 12px; color: var(--ink-3); margin-top: 1px; font-family: var(--font-mono); }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .btn {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-ghost { background: transparent; border-color: var(--rule); color: var(--ink-2); }
+  .btn-ghost:hover { background: var(--paper-2); border-color: var(--paper-3); }
+  .btn-primary { background: var(--moss); color: #fff; border-color: var(--moss); }
+  .btn-primary:hover { background: #234a32; }
+  .btn-amber { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .btn-amber:hover { background: #a96a1f; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+
+  /* ── Content ── */
+  .content { padding: 32px 36px; flex: 1; }
+
+  /* ── Upload zone ── */
+  .upload-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .upload-card {
+    border: 1.5px dashed var(--paper-3);
+    border-radius: var(--radius-lg);
+    padding: 18px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--paper);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-card:hover { border-color: var(--moss-mid); background: var(--moss-light); }
+  .upload-card.has-file { border-style: solid; border-color: var(--moss-mid); background: var(--moss-light); }
+  .upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 22px; margin-bottom: 6px; }
+  .upload-label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+  .upload-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .upload-done { font-size: 11px; color: var(--moss); font-weight: 600; margin-top: 2px; }
+
+  /* ── AI action bar ── */
+  .ai-bar {
+    background: var(--ink);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    gap: 16px;
+  }
+  .ai-bar-left { display: flex; align-items: center; gap: 12px; }
+  .ai-pulse {
+    width: 32px; height: 32px;
+    background: var(--moss);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    animation: pulse-glow 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74,140,96,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(74,140,96,0); }
+  }
+  .ai-text { color: rgba(255,255,255,0.9); font-size: 13.5px; font-weight: 500; }
+  .ai-sub { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 1px; }
+
+  /* ── Progress bar ── */
+  .progress-wrap { display: none; align-items: center; gap: 12px; flex: 1; margin: 0 16px; }
+  .progress-wrap.active { display: flex; }
+  .progress-bar-bg { flex: 1; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--moss-mid); border-radius: 2px; width: 0%; transition: width 0.3s ease; }
+  .progress-label { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+
+  /* ── Cards row ── */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .metric-card {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .metric-card.visible { opacity: 1; transform: translateY(0); }
+  .metric-label { font-size: 11px; font-family: var(--font-mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .metric-value { font-family: var(--font-display); font-size: 26px; margin: 4px 0 2px; letter-spacing: -0.02em; }
+  .metric-value.positive { color: var(--moss); }
+  .metric-value.negative { color: var(--red); }
+  .metric-delta { font-size: 11.5px; color: var(--ink-3); }
+  .metric-delta.up { color: var(--moss-mid); }
+  .metric-delta.down { color: var(--red); }
+
+  /* ── Two-col layout ── */
+  .two-col { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+
+  /* ── Panel ── */
+  .panel {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .panel.visible { opacity: 1; }
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title { font-weight: 600; font-size: 14px; }
+  .panel-sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+
+  /* ── Table ── */
+  .ledger-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ledger-table thead th {
+    background: var(--paper);
+    padding: 9px 16px;
+    text-align: left;
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ledger-table tbody tr { border-bottom: 1px solid var(--rule); transition: background 0.12s; }
+  .ledger-table tbody tr:last-child { border-bottom: none; }
+  .ledger-table tbody tr:hover { background: var(--paper); }
+  .ledger-table td { padding: 10px 16px; }
+  .ledger-table td.amount { font-family: var(--font-mono); font-size: 12.5px; text-align: right; }
+  .ledger-table td.amount.neg { color: var(--red); }
+  .ledger-table td.amount.pos { color: var(--moss); }
+
+  .cat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .cat-office { background: var(--blue-light); color: var(--blue); }
+  .cat-meals { background: var(--amber-light); color: var(--amber); }
+  .cat-software { background: #f0ebf8; color: #6a3d9a; }
+  .cat-travel { background: #e8f5e9; color: #2e7d32; }
+  .cat-payroll { background: var(--red-light); color: var(--red); }
+  .cat-revenue { background: var(--moss-light); color: var(--moss); }
+  .cat-misc { background: var(--paper-2); color: var(--ink-3); }
+  .cat-other { background: #e8f0f7; color: var(--blue); }
+
+  .ai-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--moss-mid);
+    background: var(--moss-light);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 6px;
+  }
+
+  /* ── P&L Panel ── */
+  .pl-section { padding: 4px 0; }
+  .pl-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 20px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--rule);
+    transition: background 0.12s;
+  }
+  .pl-row:hover { background: var(--paper); }
+  .pl-row:last-child { border-bottom: none; }
+  .pl-row.section-header {
+    padding: 10px 20px 6px;
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .pl-row.total {
+    background: var(--paper-2);
+    font-weight: 600;
+    font-size: 14px;
+    border-top: 2px solid var(--rule);
+  }
+  .pl-row.net-income { background: var(--moss-light); font-weight: 700; }
+  .pl-amount { font-family: var(--font-mono); font-size: 13px; }
+  .pl-amount.pos { color: var(--moss); }
+  .pl-amount.neg { color: var(--red); }
+
+  /* ── CPA Review Panel ── */
+  .cpa-panel {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-top: 20px;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .cpa-panel.visible { opacity: 1; }
+  .cpa-header {
+    background: var(--moss);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cpa-icon { font-size: 20px; }
+  .cpa-header-text { color: #fff; }
+  .cpa-header-title { font-weight: 600; font-size: 14px; }
+  .cpa-header-sub { font-size: 12px; opacity: 0.7; margin-top: 1px; }
+  .cpa-body { padding: 20px; }
+  .cpa-flags { margin-bottom: 16px; }
+  .cpa-flag {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--amber-light);
+    border: 1px solid rgba(196,127,42,0.2);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    font-size: 12.5px;
+  }
+  .cpa-flag.info { background: var(--blue-light); border-color: rgba(42,92,140,0.15); }
+  .flag-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+  .flag-text { color: var(--ink-2); line-height: 1.4; }
+  .flag-label { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--amber); }
+  .flag-label.info { color: var(--blue); }
+  .cpa-note-label { font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+  .cpa-note {
+    width: 100%;
+    min-height: 80px;
+    border: 1.5px solid var(--paper-3);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    resize: vertical;
+    background: var(--paper);
+    color: var(--ink);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .cpa-note:focus { border-color: var(--moss-mid); background: #fff; }
+  .cpa-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+  /* ── Status badge ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .status-pending { background: var(--amber-light); color: var(--amber); }
+  .status-done { background: var(--moss-light); color: var(--moss); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: var(--radius-lg);
+    font-size: 13.5px;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 340px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--ink-3);
+  }
+  .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-text { font-size: 14px; }
+  .empty-sub { font-size: 12px; margin-top: 4px; }
+
+  /* ── Tab switcher ── */
+  .report-tabs { display: flex; gap: 2px; background: var(--paper-2); border-radius: var(--radius); padding: 3px; margin-bottom: 20px; width: fit-content; }
+  .report-tab {
+    padding: 6px 16px; font-size: 12.5px; font-weight: 500; border-radius: var(--radius);
+    cursor: pointer; color: var(--ink-3); transition: all 0.15s; border: none; background: none; font-family: var(--font-body);
+  }
+  .report-tab.active { background: #fff; color: var(--ink); box-shadow: var(--shadow); }
+
+  /* ── Balance sheet ── */
+  .bs-section-header {
+    padding: 10px 20px 6px; font-size: 10.5px; font-family: var(--font-mono);
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3);
+    background: var(--paper); border-bottom: 1px solid var(--rule); border-top: 1px solid var(--rule);
+  }
+  .bs-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 20px; font-size: 13px; border-bottom: 1px solid var(--rule); transition: background 0.12s;
+  }
+  .bs-row:hover { background: var(--paper); }
+  .bs-row:last-child { border-bottom: none; }
+  .bs-row.indent span:first-child { padding-left: 12px; color: var(--ink-2); font-size: 12.5px; }
+  .bs-row.subtotal { font-weight: 600; background: var(--paper-2); }
+  .bs-row.total { font-weight: 700; background: var(--paper-3); font-size: 13.5px; border-top: 2px solid var(--rule); }
+  .bs-amount { font-family: var(--font-mono); font-size: 12.5px; }
+  .bs-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 0; }
+
+  /* ── BS input modal ── */
+  .bs-prompt {
+    background: var(--paper); border: 1.5px dashed var(--paper-3);
+    border-radius: var(--radius-lg); padding: 28px 24px; text-align: center;
+  }
+  .bs-prompt-icon { font-size: 28px; margin-bottom: 10px; }
+  .bs-prompt-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+  .bs-prompt-sub { font-size: 13px; color: var(--ink-3); margin-bottom: 20px; }
+  .bs-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; margin-bottom: 16px; }
+  .bs-field label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); margin-bottom: 4px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+  .bs-field input {
+    width: 100%; padding: 8px 10px; border: 1.5px solid var(--paper-3);
+    border-radius: var(--radius); font-size: 13px; font-family: var(--font-mono);
+    background: #fff; color: var(--ink); outline: none; transition: border-color 0.15s;
+  }
+  .bs-field input:focus { border-color: var(--moss-mid); }
+  .bs-field input::placeholder { color: var(--ink-3); }
+
+  /* ── Loading skeleton ── */
+  .skeleton {
+    background: linear-gradient(90deg, var(--paper-2) 25%, var(--paper-3) 50%, var(--paper-2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">SmartBookkeeper</div>
+      <div class="logo-tag">Smart Bookkeeping</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Workspace</div>
+      <div class="nav-item active" onclick="switchTab(this,'dashboard')">
+        <span class="nav-icon">◈</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="switchTab(this,'transactions')">
+        <span class="nav-icon">≡</span> Transactions
+      </div>
+      <div class="nav-item" onclick="switchTab(this,'reports')">
+        <span class="nav-icon">▦</span> Reports
+      </div>
+      <div class="nav-section">Tools</div>
+      <div class="nav-item" onclick="switchTab(this,'upload')">
+        <span class="nav-icon">↑</span> Upload Data
+      </div>
+      <div class="nav-item" onclick="switchTab(this,'balancesheet')">
+        <span class="nav-icon">⊟</span> Balance Sheet
+      </div>
+      <div class="nav-item" onclick="switchTab(this,'cpa')">
+        <span class="nav-icon">✓</span> CPA Checkup
+        <span style="margin-left:auto;background:var(--amber);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;font-family:var(--font-mono);">1</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="client-badge">
+        <div class="client-name">Cascade Roofing LLC</div>
+        <div class="client-plan">Pro Plan · Oct 2024</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">October 2024</div>
+        <div class="topbar-meta">Last synced: just now · 47 transactions</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" onclick="exportData()">↓ Export</button>
+        <button class="btn btn-primary" onclick="requestCPACheckup()">Request CPA Checkup</button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- Upload strip -->
+      <div class="upload-strip">
+        <div class="upload-card" id="uc-csv">
+          <input type="file" accept=".csv,.xlsx" onchange="handleFile(this,'uc-csv','csv')">
+          <div class="upload-icon">📊</div>
+          <div class="upload-label">Bank CSV</div>
+          <div class="upload-sub" id="uc-csv-sub">Spreadsheet export</div>
+        </div>
+        <div class="upload-card" id="uc-receipts">
+          <input type="file" accept="image/*" multiple onchange="handleFile(this,'uc-receipts','receipts')">
+          <div class="upload-icon">🧾</div>
+          <div class="upload-label">Receipts</div>
+          <div class="upload-sub" id="uc-receipts-sub">Photos or scans</div>
+        </div>
+        <div class="upload-card" id="uc-bank">
+          <input type="file" accept=".pdf,.csv" onchange="handleFile(this,'uc-bank','bank')">
+          <div class="upload-icon">🏦</div>
+          <div class="upload-label">Bank Statement</div>
+          <div class="upload-sub" id="uc-bank-sub">PDF or CSV</div>
+        </div>
+        <div class="upload-card" id="uc-manual">
+          <input type="file" accept="*" onchange="handleFile(this,'uc-manual','manual')" style="display:none">
+          <div class="upload-icon">✏️</div>
+          <div class="upload-label">Manual Entry</div>
+          <div class="upload-sub" id="uc-manual-sub" onclick="openManualEntry(event)">Add transactions</div>
+        </div>
+      </div>
+
+      <!-- AI Action Bar -->
+      <div class="ai-bar">
+        <div class="ai-bar-left">
+          <div class="ai-pulse">✦</div>
+          <div>
+            <div class="ai-text" id="ai-status">Ready to analyze your October books</div>
+            <div class="ai-sub" id="ai-sub">Upload files above or use the demo data to get started</div>
+          </div>
+        </div>
+        <div class="progress-wrap" id="ai-progress">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="ai-progress-fill"></div></div>
+          <div class="progress-label" id="ai-progress-label">0%</div>
+        </div>
+        <button class="btn btn-primary" id="analyze-btn" onclick="runAnalysis()">✦ Analyze with AI</button>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary-row">
+        <div class="metric-card" id="mc-revenue">
+          <div class="metric-label">Total Revenue</div>
+          <div class="metric-value positive" id="mc-revenue-val">—</div>
+          <div class="metric-delta" id="mc-revenue-delta">Awaiting analysis</div>
+        </div>
+        <div class="metric-card" id="mc-expenses">
+          <div class="metric-label">Total Expenses</div>
+          <div class="metric-value negative" id="mc-expenses-val">—</div>
+          <div class="metric-delta" id="mc-expenses-delta">Awaiting analysis</div>
+        </div>
+        <div class="metric-card" id="mc-net">
+          <div class="metric-label">Net Income</div>
+          <div class="metric-value" id="mc-net-val">—</div>
+          <div class="metric-delta" id="mc-net-delta">Awaiting analysis</div>
+        </div>
+        <div class="metric-card" id="mc-tax">
+          <div class="metric-label">Est. Tax Liability</div>
+          <div class="metric-value" id="mc-tax-val">—</div>
+          <div class="metric-delta" id="mc-tax-delta"><span style="font-size:10px;background:var(--amber-light);color:var(--amber);padding:2px 6px;border-radius:3px;font-family:var(--font-mono)">Upsell: Full Estimate</span></div>
+        </div>
+      </div>
+
+      <!-- Report tabs -->
+      <div class="report-tabs">
+        <button class="report-tab active" id="tab-pl" onclick="switchReport('pl')">P&amp;L Statement</button>
+        <button class="report-tab" id="tab-bs" onclick="switchReport('bs')">Balance Sheet</button>
+      </div>
+
+      <!-- Two-col -->
+      <div class="two-col" id="report-pl-view">
+        <!-- Transactions panel -->
+        <div class="panel" id="panel-transactions">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Transactions <span style="font-size:12px;color:var(--ink-3);font-weight:400" id="txn-count"></span></div>
+              <div class="panel-sub">AI-categorized · October 2024</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="filterTransactions()">Filter</button>
+          </div>
+          <div id="txn-body">
+            <div class="empty-state">
+              <div class="empty-icon">📂</div>
+              <div class="empty-text">No transactions yet</div>
+              <div class="empty-sub">Run AI analysis to categorize your books</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div>
+          <!-- P&L Panel -->
+          <div class="panel" id="panel-pl">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">P&amp;L Summary</div>
+                <div class="panel-sub">October 2024</div>
+              </div>
+              <span class="status-badge status-pending" id="pl-status">
+                <span class="status-dot"></span> Draft
+              </span>
+            </div>
+            <div id="pl-body">
+              <div class="empty-state">
+                <div class="empty-icon">📈</div>
+                <div class="empty-text">P&amp;L generates after analysis</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CPA Review Panel -->
+          <div class="cpa-panel" id="panel-cpa">
+            <div class="cpa-header">
+              <div class="cpa-icon">👩‍💼</div>
+              <div class="cpa-header-text">
+                <div class="cpa-header-title">CPA Checkup Request</div>
+                <div class="cpa-header-sub">Send to your accountant for sign-off</div>
+              </div>
+            </div>
+            <div class="cpa-body">
+              <div class="cpa-flags" id="cpa-flags">
+                <div class="cpa-flag">
+                  <div class="flag-icon">⚑</div>
+                  <div class="flag-text">
+                    <div class="flag-label">Run analysis first</div>
+                    AI flags and recommendations will appear here after analysis.
+                  </div>
+                </div>
+              </div>
+              <div class="cpa-note-label">Notes for your CPA</div>
+              <textarea class="cpa-note" id="cpa-note" placeholder="Any context, questions, or unusual items to flag…"></textarea>
+              <div class="cpa-actions">
+                <button class="btn btn-primary" style="flex:1" onclick="submitCheckup()">Send for Checkup</button>
+                <button class="btn btn-ghost" onclick="saveDraft()">Save Draft</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- end two-col -->
+
+      <!-- Balance Sheet view (hidden by default) -->
+      <div id="report-bs-view" style="display:none">
+        <div id="bs-content">
+          <div class="bs-prompt">
+            <div class="bs-prompt-icon">⊟</div>
+            <div class="bs-prompt-title">Generate Balance Sheet</div>
+            <div class="bs-prompt-sub">Enter your asset and liability balances as of October 31, 2024.<br>Net income from your P&amp;L will be pulled in automatically.</div>
+            <div class="bs-fields">
+              <div class="bs-field"><label>Checking Account</label><input id="bs-checking" type="text" placeholder="e.g. 28,400"></div>
+              <div class="bs-field"><label>Savings Account</label><input id="bs-savings" type="text" placeholder="e.g. 15,000"></div>
+              <div class="bs-field"><label>Accounts Receivable</label><input id="bs-ar" type="text" placeholder="e.g. 8,750"></div>
+              <div class="bs-field"><label>Equipment (net)</label><input id="bs-equip" type="text" placeholder="e.g. 42,000"></div>
+              <div class="bs-field"><label>Accounts Payable</label><input id="bs-ap" type="text" placeholder="e.g. 3,200"></div>
+              <div class="bs-field"><label>Credit Card Balance</label><input id="bs-cc" type="text" placeholder="e.g. 1,840"></div>
+              <div class="bs-field"><label>Business Loan</label><input id="bs-loan" type="text" placeholder="e.g. 35,000"></div>
+              <div class="bs-field"><label>Owner Equity (prior)</label><input id="bs-equity" type="text" placeholder="e.g. 54,310"></div>
+            </div>
+            <button class="btn btn-primary" onclick="buildBalanceSheet()">✦ Generate Balance Sheet</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+
+<!-- Footer -->
+<footer style="margin-left:220px;border-top:1px solid var(--rule);padding:14px 36px;display:flex;align-items:center;justify-content:space-between;background:var(--paper);">
+  <span style="font-size:11px;color:var(--ink-3);font-family:var(--font-mono)">© 2026 SmartBookkeeper · smartbookkeeper.io · Sole Proprietorship · State of Idaho</span>
+  <span style="display:flex;gap:20px">
+    <a href="#" onclick="showLegal('privacy')" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Privacy Policy</a>
+    <a href="#" onclick="showLegal('terms')" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Terms of Service</a>
+    <a href="mailto:[YOUR EMAIL ADDRESS]" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Contact</a>
+  </span>
+</footer>
+
+<!-- Legal modal -->
+<div id="legal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;width:680px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between;">
+      <div id="legal-title" style="font-family:var(--font-display);font-size:20px;letter-spacing:-0.01em"></div>
+      <button onclick="closeLegal()" style="background:none;border:none;font-size:20px;color:var(--ink-3);cursor:pointer;padding:4px 8px;border-radius:4px">×</button>
+    </div>
+    <div id="legal-body" style="padding:24px;overflow-y:auto;font-size:13.5px;line-height:1.7;color:var(--ink-2)"></div>
+    <div style="padding:16px 24px;border-top:1px solid var(--rule);display:flex;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeLegal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Demo data ──
+const DEMO_TRANSACTIONS = [
+  { date:'Oct 03', desc:'Invoice #1042 — Pacific West Build', cat:'revenue', amount:12500, type:'income' },
+  { date:'Oct 04', desc:'Home Depot – Roofing Materials', cat:'office', amount:-3240, type:'expense' },
+  { date:'Oct 07', desc:'Crew Payroll – Week 1', cat:'payroll', amount:-4800, type:'expense' },
+  { date:'Oct 08', desc:'Invoice #1043 — Silverstone Homes', cat:'revenue', amount:8750, type:'income' },
+  { date:'Oct 09', desc:'Fuel – Truck Fleet (3 vehicles)', cat:'travel', amount:-620, type:'expense' },
+  { date:'Oct 11', desc:'QuickBooks Subscription', cat:'software', amount:-55, type:'expense' },
+  { date:'Oct 14', desc:'Client Lunch – Cascade Heights', cat:'meals', amount:-147, type:'expense' },
+  { date:'Oct 15', desc:'Crew Payroll – Week 2', cat:'payroll', amount:-4800, type:'expense' },
+  { date:'Oct 17', desc:'Invoice #1044 — Cedar Ridge HOA', cat:'revenue', amount:6200, type:'income' },
+  { date:'Oct 18', desc:'Safety Equipment – OSHA Supplies', cat:'office', amount:-390, type:'expense' },
+  { date:'Oct 21', desc:'Google Workspace', cat:'software', amount:-18, type:'expense' },
+  { date:'Oct 22', desc:'Crew Payroll – Week 3', cat:'payroll', amount:-4800, type:'expense' },
+  { date:'Oct 24', desc:'Subcontractor – Gutters (Martinez Co.)', cat:'other', amount:-2100, type:'expense' },
+  { date:'Oct 25', desc:'Invoice #1045 — Willow Creek Dev.', cat:'revenue', amount:15000, type:'income' },
+  { date:'Oct 28', desc:'Insurance Premium – Liability', cat:'misc', amount:-1240, type:'expense' },
+  { date:'Oct 29', desc:'Crew Payroll – Week 4', cat:'payroll', amount:-4800, type:'expense' },
+  { date:'Oct 30', desc:'Office Supplies & Printer Ink', cat:'office', amount:-89, type:'expense' },
+  { date:'Oct 31', desc:'Mileage Reimbursement', cat:'travel', amount:-180, type:'expense' },
+];
+
+const CAT_LABELS = {
+  revenue: 'Revenue', office: 'Office', meals: 'Meals & Ent.', software: 'Software',
+  travel: 'Travel', payroll: 'Payroll', misc: 'Insurance', other: 'Subcontract'
+};
+
+const CAT_CLASSES = {
+  revenue:'cat-revenue', office:'cat-office', meals:'cat-meals',
+  software:'cat-software', travel:'cat-travel', payroll:'cat-payroll',
+  misc:'cat-misc', other:'cat-other'
+};
+
+let analyzed = false;
+let uploadedFiles = { csv: false, receipts: false, bank: false };
+
+// ── File upload handler ──
+function handleFile(input, cardId, type) {
+  if (!input.files.length) return;
+  const card = document.getElementById(cardId);
+  const sub = document.getElementById(cardId + '-sub');
+  card.classList.add('has-file');
+  if (type === 'receipts') {
+    sub.textContent = input.files.length + ' file' + (input.files.length > 1 ? 's' : '') + ' ready';
+  } else {
+    sub.textContent = input.files[0].name.substring(0, 22);
+  }
+  sub.className = 'upload-done';
+  uploadedFiles[type] = true;
+  showToast('✓ ' + input.files[0].name.substring(0, 30) + ' uploaded');
+}
+
+function openManualEntry(e) {
+  e.stopPropagation();
+  showToast('✏️ Manual entry panel — coming in next version!');
+}
+
+// ── Analysis ──
+function runAnalysis() {
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+
+  const statusEl = document.getElementById('ai-status');
+  const subEl = document.getElementById('ai-sub');
+  const progress = document.getElementById('ai-progress');
+  const fill = document.getElementById('ai-progress-fill');
+  const label = document.getElementById('ai-progress-label');
+
+  progress.classList.add('active');
+
+  const steps = [
+    [10, 'Reading uploaded data…'],
+    [28, 'Parsing transactions…'],
+    [45, 'Categorizing with AI…'],
+    [62, 'Detecting patterns…'],
+    [78, 'Building P&L…'],
+    [90, 'Flagging checkup items…'],
+    [100, 'Analysis complete!'],
+  ];
+
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i >= steps.length) {
+      clearInterval(interval);
+      setTimeout(showResults, 300);
+      return;
+    }
+    const [pct, msg] = steps[i];
+    fill.style.width = pct + '%';
+    label.textContent = pct + '%';
+    statusEl.textContent = msg;
+    subEl.textContent = 'Using AI categorization engine';
+    i++;
+  }, 420);
+}
+
+function showResults() {
+  analyzed = true;
+  const progress = document.getElementById('ai-progress');
+  const btn = document.getElementById('analyze-btn');
+  const statusEl = document.getElementById('ai-status');
+  const subEl = document.getElementById('ai-sub');
+
+  progress.classList.remove('active');
+  btn.textContent = '✦ Re-analyze';
+  btn.disabled = false;
+  statusEl.textContent = '18 transactions categorized · 2 items flagged for checkup';
+  subEl.textContent = 'AI confidence: 96% · October 2024';
+
+  // Metrics
+  const revenue = 42450;
+  const expenses = 22279;
+  const net = revenue - expenses;
+  const taxEst = Math.round(net * 0.22);
+
+  const show = (id, val, delta, cls) => {
+    const card = document.getElementById(id);
+    card.querySelector('.metric-value').textContent = val;
+    if (delta) card.querySelector('.metric-delta').textContent = delta;
+    if (cls) card.querySelector('.metric-value').className = 'metric-value ' + cls;
+    setTimeout(() => card.classList.add('visible'), 50);
+  };
+
+  setTimeout(() => show('mc-revenue', '$42,450', '↑ 12% vs Sep', 'positive'), 100);
+  setTimeout(() => show('mc-expenses', '$22,279', '↓ 3% vs Sep', 'negative'), 200);
+  setTimeout(() => {
+    show('mc-net', '$20,171', '↑ 31% vs Sep', 'positive');
+    document.getElementById('mc-net-val').style.color = 'var(--moss)';
+  }, 300);
+  setTimeout(() => show('mc-tax', '~$4,437', '', ''), 400);
+
+  // Transactions
+  renderTransactions();
+
+  // P&L
+  renderPL(revenue, expenses, net);
+
+  // CPA flags
+  renderCPAFlags();
+
+  // Show panels
+  setTimeout(() => {
+    document.getElementById('panel-transactions').classList.add('visible');
+    document.getElementById('panel-pl').classList.add('visible');
+    document.getElementById('panel-cpa').classList.add('visible');
+  }, 500);
+
+  showToast('✦ Analysis complete — 18 transactions categorized');
+}
+
+function renderTransactions() {
+  const tbody = document.getElementById('txn-body');
+  document.getElementById('txn-count').textContent = '(' + DEMO_TRANSACTIONS.length + ')';
+
+  const rows = DEMO_TRANSACTIONS.map(t => {
+    const neg = t.amount < 0;
+    const fmt = (neg ? '-$' : '+$') + Math.abs(t.amount).toLocaleString();
+    return `<tr>
+      <td style="color:var(--ink-3);font-family:var(--font-mono);font-size:11px;white-space:nowrap">${t.date}</td>
+      <td>
+        ${t.desc}
+        <span class="ai-tag">✦ AI</span>
+      </td>
+      <td><span class="cat-pill ${CAT_CLASSES[t.cat]}">${CAT_LABELS[t.cat]}</span></td>
+      <td class="amount ${neg?'neg':'pos'}">${fmt}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.innerHTML = `<table class="ledger-table">
+    <thead><tr>
+      <th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderPL(revenue, expenses, net) {
+  const expenseBreakdown = [
+    ['Payroll', 19200], ['Materials & Supplies', 3629], ['Subcontractors', 2100],
+    ['Travel & Fuel', 800], ['Insurance', 1240], ['Software', 73], ['Meals & Ent.', 147],
+  ];
+  const totalExp = expenseBreakdown.reduce((s,[,v]) => s+v, 0);
+
+  const row = (label, amt, cls='', indent=false) => `
+    <div class="pl-row ${cls}">
+      <span style="${indent?'padding-left:12px;color:var(--ink-2);font-size:12.5px':''}">${label}</span>
+      <span class="pl-amount ${amt>0?'pos':'neg'}">${amt>0?'+':'-'}$${Math.abs(amt).toLocaleString()}</span>
+    </div>`;
+
+  const expRows = expenseBreakdown.map(([l,v]) => row(l, -v, '', true)).join('');
+
+  document.getElementById('pl-body').innerHTML = `
+    <div class="pl-section">
+      <div class="pl-row section-header"><span>Revenue</span></div>
+      ${row('Service Revenue', revenue, '', true)}
+      ${row('Total Revenue', revenue, 'total')}
+      <div class="pl-row section-header"><span>Expenses</span></div>
+      ${expRows}
+      ${row('Total Expenses', -totalExp, 'total')}
+      ${row('Net Income', net, 'net-income')}
+    </div>`;
+
+  document.getElementById('pl-status').innerHTML = '<span class="status-dot"></span> Ready for Checkup';
+  document.getElementById('pl-status').className = 'status-badge status-done';
+}
+
+function renderCPAFlags() {
+  document.getElementById('cpa-flags').innerHTML = `
+    <div class="cpa-flag">
+      <div class="flag-icon">⚑</div>
+      <div class="flag-text">
+        <div class="flag-label">Checkup Recommended</div>
+        Oct 24 subcontractor payment to Martinez Co. ($2,100) — confirm 1099 requirement if annual total exceeds $600.
+      </div>
+    </div>
+    <div class="cpa-flag">
+      <div class="flag-icon">⚑</div>
+      <div class="flag-text">
+        <div class="flag-label">Deduction Opportunity</div>
+        Oct 14 client meal ($147) — ensure business purpose is documented for IRS substantiation.
+      </div>
+    </div>
+    <div class="cpa-flag info">
+      <div class="flag-icon">ℹ</div>
+      <div class="flag-text">
+        <div class="flag-label info">Tax Liability Estimate</div>
+        Based on $20,171 net income, estimated quarterly tax of ~$4,437. Upgrade for full estimate with deduction optimization.
+      </div>
+    </div>`;
+}
+
+// ── Report tab switcher ──
+function switchReport(tab) {
+  document.getElementById('report-pl-view').style.display = tab === 'pl' ? 'grid' : 'none';
+  document.getElementById('report-bs-view').style.display = tab === 'bs' ? 'block' : 'none';
+  document.getElementById('tab-pl').classList.toggle('active', tab === 'pl');
+  document.getElementById('tab-bs').classList.toggle('active', tab === 'bs');
+}
+
+// ── Balance sheet ──
+function buildBalanceSheet() {
+  const parse = id => parseFloat((document.getElementById(id).value || '0').replace(/,/g,'')) || 0;
+  const checking = parse('bs-checking') || 28400;
+  const savings   = parse('bs-savings')  || 15000;
+  const ar        = parse('bs-ar')       || 8750;
+  const equip     = parse('bs-equip')    || 42000;
+  const ap        = parse('bs-ap')       || 3200;
+  const cc        = parse('bs-cc')       || 1840;
+  const loan      = parse('bs-loan')     || 35000;
+  const priorEquity = parse('bs-equity') || 54310;
+  const netIncome = analyzed ? 20171 : 0;
+
+  const totalCurrentAssets = checking + savings + ar;
+  const totalAssets = totalCurrentAssets + equip;
+  const totalCurrentLiab = ap + cc;
+  const totalLiab = totalCurrentLiab + loan;
+  const retainedEarnings = priorEquity + netIncome;
+  const totalEquity = retainedEarnings;
+  const totalLiabEquity = totalLiab + totalEquity;
+
+  const fmt = n => '$' + Math.round(n).toLocaleString();
+  const bsRow = (label, val, cls='', indent=false) => `
+    <div class="bs-row ${cls} ${indent?'indent':''}">
+      <span>${label}</span>
+      <span class="bs-amount">${val !== null ? fmt(val) : ''}</span>
+    </div>`;
+
+  document.getElementById('bs-content').innerHTML = `
+    <div class="bs-two-col">
+      <div class="panel visible">
+        <div class="panel-header">
+          <div><div class="panel-title">Assets</div><div class="panel-sub">October 31, 2024</div></div>
+        </div>
+        <div class="bs-section-header">Current Assets</div>
+        ${bsRow('Checking Account', checking, '', true)}
+        ${bsRow('Savings Account', savings, '', true)}
+        ${bsRow('Accounts Receivable', ar, '', true)}
+        ${bsRow('Total Current Assets', totalCurrentAssets, 'subtotal')}
+        <div class="bs-section-header">Fixed Assets</div>
+        ${bsRow('Equipment (net of depreciation)', equip, '', true)}
+        ${bsRow('Total Assets', totalAssets, 'total')}
+      </div>
+      <div>
+        <div class="panel visible">
+          <div class="panel-header">
+            <div><div class="panel-title">Liabilities &amp; Equity</div><div class="panel-sub">October 31, 2024</div></div>
+          </div>
+          <div class="bs-section-header">Current Liabilities</div>
+          ${bsRow('Accounts Payable', ap, '', true)}
+          ${bsRow('Credit Card Balance', cc, '', true)}
+          ${bsRow('Total Current Liabilities', totalCurrentLiab, 'subtotal')}
+          <div class="bs-section-header">Long-term Liabilities</div>
+          ${bsRow('Business Loan', loan, '', true)}
+          ${bsRow('Total Liabilities', totalLiab, 'subtotal')}
+          <div class="bs-section-header">Owner\'s Equity</div>
+          ${bsRow('Prior Retained Earnings', priorEquity, '', true)}
+          ${bsRow('Net Income (Oct 2024)', netIncome, '', true)}
+          ${bsRow('Total Equity', totalEquity, 'subtotal')}
+          ${bsRow('Total Liabilities + Equity', totalLiabEquity, 'total')}
+        </div>
+        ${totalAssets !== totalLiabEquity ? `<div style="margin-top:10px;padding:10px 14px;background:var(--amber-light);border:1px solid rgba(196,127,42,0.2);border-radius:var(--radius);font-size:12px;color:var(--amber)">⚑ Balance sheet doesn't balance — check your entries.</div>` : `<div style="margin-top:10px;padding:10px 14px;background:var(--moss-light);border:1px solid rgba(74,140,96,0.2);border-radius:var(--radius);font-size:12px;color:var(--moss)">✓ Balance sheet balances. Assets = Liabilities + Equity.</div>`}
+      </div>
+    </div>`;
+
+  showToast('✦ Balance sheet generated');
+}
+
+// ── Nav ──
+function switchTab(el, tab) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  if (tab === 'cpa' || tab === 'balancesheet') {
+    if (!analyzed) {
+      showToast('Run AI analysis first');
+      el.classList.remove('active');
+      return;
+    }
+  }
+  if (tab === 'balancesheet') {
+    switchReport('bs');
+    document.getElementById('report-bs-view').scrollIntoView({ behavior:'smooth' });
+  }
+  if (tab === 'cpa') {
+    document.getElementById('panel-cpa').scrollIntoView({ behavior:'smooth' });
+  }
+}
+
+// ── Actions ──
+function requestCPACheckup() {
+  if (!analyzed) { showToast('⚠ Run analysis first'); return; }
+  document.getElementById('panel-cpa').scrollIntoView({ behavior:'smooth' });
+  document.getElementById('cpa-note').focus();
+}
+
+function submitCheckup() {
+  showToast('✓ Checkup request sent to your CPA! You\'ll hear back within 24 hours.');
+}
+
+function saveDraft() {
+  showToast('Draft saved');
+}
+
+function exportData() {
+  if (!analyzed) { showToast('⚠ Run analysis first to export'); return; }
+  showToast('↓ Exporting October 2024 P&L as CSV…');
+}
+
+function filterTransactions() {
+  showToast('Filter panel — coming in next version!');
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ── Legal modal ──
+const LEGAL = {
+  privacy: {
+    title: 'Privacy Policy',
+    body: `
+      <p style="font-size:12px;color:var(--ink-3);margin-bottom:16px">Effective Date: March 26, 2026 · SmartBookkeeper, Sole Proprietorship · State of Idaho</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">1. Who We Are</h3>
+      <p>SmartBookkeeper is a sole proprietorship operated by a licensed CPA in Idaho at smartbookkeeper.io. We provide AI-assisted bookkeeping and CPA Checkup services.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">2. Invite-Only Access</h3>
+      <p>SmartBookkeeper is currently invite-only. By accepting an invitation and creating an account, you agree to this Privacy Policy and our Terms of Service.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">3. Information We Collect</h3>
+      <p>We collect account information (name, email, business name), financial data you upload (bank statements, receipts, transaction records), and usage data. We do not collect SSNs, EINs, or government IDs. Payment is processed by Stripe — we never see your full card number.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">4. How We Use Your Information</h3>
+      <p>To provide the Service, categorize transactions with AI, facilitate CPA Checkup requests, process payments, and comply with applicable law including GLBA.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">5. We Do Not Sell Your Data</h3>
+      <p>We do not sell your personal or financial data. We share data only with service providers (Supabase, Anthropic, Stripe, Vercel) necessary to operate the Service. Anthropic does not retain or train on API data.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">6. Data Security</h3>
+      <p>All data is encrypted in transit (TLS) and at rest (AES-256). Each client's data is isolated through database-level Row Level Security policies.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">7. GLBA Notice</h3>
+      <p>As a CPA-operated financial service, SmartBookkeeper is subject to the Gramm-Leach-Bliley Act. We do not share your nonpublic personal financial information with nonaffiliated third parties for marketing purposes.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">8. Your Rights</h3>
+      <p>You may request access, correction, deletion, or export of your data at any time. Contact us at [YOUR EMAIL ADDRESS]. We will respond within 30 days.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">9. Data Retention</h3>
+      <p>Data is retained while your account is active and deleted within 90 days of account closure, except CPA Checkup records which may be retained up to 7 years per Idaho CPA recordkeeping requirements.</p>
+      <p style="font-size:12px;color:var(--ink-3);margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">Full legal document available upon request.</p>
+    `
+  },
+  terms: {
+    title: 'Terms of Service',
+    body: `
+      <p style="font-size:12px;color:var(--ink-3);margin-bottom:16px">Effective Date: March 26, 2026 · SmartBookkeeper, Sole Proprietorship · State of Idaho</p>
+      <div style="background:#fdf3e3;border-left:3px solid #c47f2a;padding:10px 14px;border-radius:4px;margin-bottom:16px;font-size:13px">
+        By accepting an invitation and creating an account, you agree to these Terms.
+      </div>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">1. The Service</h3>
+      <p>SmartBookkeeper provides AI-assisted bookkeeping automation and CPA Checkup consultations, operated by a sole proprietor CPA licensed in Idaho.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">2. Not a Substitute for Professional Advice</h3>
+      <p style="background:#fdf3e3;padding:10px 14px;border-radius:4px;border-left:3px solid #c47f2a">AI-generated outputs are not a substitute for professional accounting, tax, or legal advice. The CPA Checkup does NOT constitute a formal audit, review, compilation, or any attest service as defined by AICPA standards.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">3. Invite-Only</h3>
+      <p>Access is by invitation only. Invitations are non-transferable. We reserve the right to revoke any invitation or account at our discretion.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">4. Acceptable Use</h3>
+      <p>You may not use SmartBookkeeper to upload fraudulent financial data, facilitate illegal financial activity, reverse-engineer the Service, or circumvent security measures.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">5. Billing and Cancellation</h3>
+      <p>Subscriptions are billed in advance via Stripe. Cancel anytime from account settings — cancellation takes effect at the end of your billing period. No prorated refunds except where required by Idaho law.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">6. Your Data</h3>
+      <p>You retain full ownership of all uploaded financial data. We claim no ownership rights over your information.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">7. Limitation of Liability</h3>
+      <p style="font-size:12.5px;color:#555">TO THE MAXIMUM EXTENT PERMITTED BY LAW, LEDGERAI SHALL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES. OUR TOTAL LIABILITY SHALL NOT EXCEED AMOUNTS PAID IN THE PRECEDING 12 MONTHS.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">8. Governing Law</h3>
+      <p>These Terms are governed by Idaho law. Disputes resolved by binding arbitration in Idaho under AAA rules. Class action waiver applies.</p>
+      <p style="font-size:12px;color:var(--ink-3);margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">Full legal document available upon request.</p>
+    `
+  }
+};
+
+function showLegal(type) {
+  event.preventDefault();
+  const modal = document.getElementById('legal-modal');
+  document.getElementById('legal-title').textContent = LEGAL[type].title;
+  document.getElementById('legal-body').innerHTML = LEGAL[type].body;
+  modal.style.display = 'flex';
+}
+
+function closeLegal() {
+  document.getElementById('legal-modal').style.display = 'none';
+}
+
+document.getElementById('legal-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeLegal();
+});
+
+// ── Initial render ──
+window.addEventListener('load', () => {
+  document.querySelectorAll('.metric-card').forEach(c => {
+    setTimeout(() => c.classList.add('visible'), 200);
+  });
+});
+</script>
+</body>
+</html>
