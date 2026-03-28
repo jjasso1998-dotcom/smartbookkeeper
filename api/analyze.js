@@ -52,28 +52,11 @@ Rules:
 - Flag large or unusual transactions
 - flag type must be "warning", "info", or "opportunity"`;
 
-  const demoData = `Oct 03 - Invoice #1042 Pacific West Build - $12,500 received
-Oct 04 - Home Depot Roofing Materials - $3,240 paid
-Oct 07 - Crew Payroll Week 1 - $4,800 paid
-Oct 08 - Invoice #1043 Silverstone Homes - $8,750 received
-Oct 09 - Fuel Truck Fleet 3 vehicles - $620 paid
-Oct 11 - QuickBooks Subscription - $55 paid
-Oct 14 - Client Lunch Cascade Heights - $147 paid
-Oct 15 - Crew Payroll Week 2 - $4,800 paid
-Oct 17 - Invoice #1044 Cedar Ridge HOA - $6,200 received
-Oct 18 - Safety Equipment OSHA Supplies - $390 paid
-Oct 21 - Google Workspace - $18 paid
-Oct 22 - Crew Payroll Week 3 - $4,800 paid
-Oct 24 - Subcontractor Gutters Martinez Co - $2,100 paid
-Oct 25 - Invoice #1045 Willow Creek Dev - $15,000 received
-Oct 28 - Insurance Premium Liability - $1,240 paid
-Oct 29 - Crew Payroll Week 4 - $4,800 paid
-Oct 30 - Office Supplies Printer Ink - $89 paid
-Oct 31 - Mileage Reimbursement - $180 paid`;
+  if (!csvText) {
+    return res.status(400).json({ error: 'No file uploaded. Please upload a bank CSV or statement.' });
+  }
 
-  const userMessage = csvText
-    ? `Analyze this CSV bank statement and categorize all transactions:\n\n${csvText}`
-    : `Analyze these demo transactions for a roofing company (October 2024):\n\n${demoData}`;
+  const userMessage = `Analyze this CSV bank statement and categorize all transactions:\n\n${csvText}`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
