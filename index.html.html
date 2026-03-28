@@ -542,8 +542,8 @@
     </nav>
     <div class="sidebar-footer">
       <div class="client-badge">
-        <div class="client-name">Cascade Roofing LLC</div>
-        <div class="client-plan">Pro Plan · Oct 2024</div>
+        <div class="client-name" id="sidebar-client-name">Your Business</div>
+        <div class="client-plan" id="sidebar-period">Upload data to analyze</div>
       </div>
     </div>
   </aside>
@@ -553,8 +553,8 @@
     <!-- Topbar -->
     <div class="topbar">
       <div>
-        <div class="topbar-title">October 2024</div>
-        <div class="topbar-meta">Last synced: just now · 47 transactions</div>
+        <div class="topbar-title" id="topbar-period">SmartBookkeeper</div>
+        <div class="topbar-meta" id="topbar-meta">Upload a bank statement to get started</div>
       </div>
       <div class="topbar-actions">
         <button class="btn btn-ghost" onclick="exportData()">↓ Export</button>
@@ -646,7 +646,7 @@
           <div class="panel-header">
             <div>
               <div class="panel-title">Transactions <span style="font-size:12px;color:var(--ink-3);font-weight:400" id="txn-count"></span></div>
-              <div class="panel-sub">AI-categorized · October 2024</div>
+              <div class="panel-sub" id="txn-period">AI-categorized</div>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="filterTransactions()">Filter</button>
           </div>
@@ -666,7 +666,7 @@
             <div class="panel-header">
               <div>
                 <div class="panel-title">P&amp;L Summary</div>
-                <div class="panel-sub">October 2024</div>
+                <div class="panel-sub" id="pl-period">—</div>
               </div>
               <span class="status-badge status-pending" id="pl-status">
                 <span class="status-dot"></span> Draft
@@ -740,7 +740,7 @@
   <span style="display:flex;gap:20px">
     <a href="#" onclick="showLegal('privacy')" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Privacy Policy</a>
     <a href="#" onclick="showLegal('terms')" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Terms of Service</a>
-    <a href="mailto:[YOUR EMAIL ADDRESS]" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Contact</a>
+    <a href="mailto:jeremiah@dimelercpa.com" style="font-size:11.5px;color:var(--ink-3);text-decoration:none;font-family:var(--font-body)">Contact</a>
   </span>
 </footer>
 
@@ -762,27 +762,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── Demo data ──
-const DEMO_TRANSACTIONS = [
-  { date:'Oct 03', desc:'Invoice #1042 — Pacific West Build', cat:'revenue', amount:12500, type:'income' },
-  { date:'Oct 04', desc:'Home Depot – Roofing Materials', cat:'office', amount:-3240, type:'expense' },
-  { date:'Oct 07', desc:'Crew Payroll – Week 1', cat:'payroll', amount:-4800, type:'expense' },
-  { date:'Oct 08', desc:'Invoice #1043 — Silverstone Homes', cat:'revenue', amount:8750, type:'income' },
-  { date:'Oct 09', desc:'Fuel – Truck Fleet (3 vehicles)', cat:'travel', amount:-620, type:'expense' },
-  { date:'Oct 11', desc:'QuickBooks Subscription', cat:'software', amount:-55, type:'expense' },
-  { date:'Oct 14', desc:'Client Lunch – Cascade Heights', cat:'meals', amount:-147, type:'expense' },
-  { date:'Oct 15', desc:'Crew Payroll – Week 2', cat:'payroll', amount:-4800, type:'expense' },
-  { date:'Oct 17', desc:'Invoice #1044 — Cedar Ridge HOA', cat:'revenue', amount:6200, type:'income' },
-  { date:'Oct 18', desc:'Safety Equipment – OSHA Supplies', cat:'office', amount:-390, type:'expense' },
-  { date:'Oct 21', desc:'Google Workspace', cat:'software', amount:-18, type:'expense' },
-  { date:'Oct 22', desc:'Crew Payroll – Week 3', cat:'payroll', amount:-4800, type:'expense' },
-  { date:'Oct 24', desc:'Subcontractor – Gutters (Martinez Co.)', cat:'other', amount:-2100, type:'expense' },
-  { date:'Oct 25', desc:'Invoice #1045 — Willow Creek Dev.', cat:'revenue', amount:15000, type:'income' },
-  { date:'Oct 28', desc:'Insurance Premium – Liability', cat:'misc', amount:-1240, type:'expense' },
-  { date:'Oct 29', desc:'Crew Payroll – Week 4', cat:'payroll', amount:-4800, type:'expense' },
-  { date:'Oct 30', desc:'Office Supplies & Printer Ink', cat:'office', amount:-89, type:'expense' },
-  { date:'Oct 31', desc:'Mileage Reimbursement', cat:'travel', amount:-180, type:'expense' },
-];
 
 const CAT_LABELS = {
   revenue: 'Revenue', office: 'Office', meals: 'Meals & Ent.', software: 'Software',
@@ -797,6 +776,9 @@ const CAT_CLASSES = {
 
 let analyzed = false;
 let uploadedFiles = { csv: false, receipts: false, bank: false };
+let currentTransactions = [];
+let currentNetIncome = 0;
+let currentMonth = '';
 
 // ── File upload handler ──
 function handleFile(input, cardId, type) {
@@ -885,12 +867,33 @@ function runAnalysis() {
     reader.onload = e => doAnalysis(e.target.result);
     reader.readAsText(file);
   } else {
-    doAnalysis(null);
+    clearInterval(interval);
+    progress.classList.remove('active');
+    btn.disabled = false;
+    btn.textContent = '✦ Analyze with AI';
+    showToast('⚠ Please upload a bank CSV or statement first');
   }
 }
 
 function showResults(data) {
   analyzed = true;
+  currentTransactions = data.transactions || [];
+  currentMonth = data.month || '';
+  const s = data.summary || {};
+  currentNetIncome = s.netIncome || 0;
+
+  // Save to localStorage
+  try { localStorage.setItem('sbk_results', JSON.stringify(data)); } catch(e) {}
+
+  // Update dynamic labels
+  if (currentMonth) {
+    document.getElementById('topbar-period').textContent = currentMonth;
+    document.getElementById('sidebar-period').textContent = currentMonth;
+    document.getElementById('txn-period').textContent = 'AI-categorized · ' + currentMonth;
+    document.getElementById('pl-period').textContent = currentMonth;
+  }
+  document.getElementById('topbar-meta').textContent = 'Last analyzed just now · ' + currentTransactions.length + ' transactions';
+
   const progress = document.getElementById('ai-progress');
   const btn = document.getElementById('analyze-btn');
   const statusEl = document.getElementById('ai-status');
@@ -900,12 +903,11 @@ function showResults(data) {
   btn.textContent = '✦ Re-analyze';
   btn.disabled = false;
 
-  const txns = data.transactions || [];
+  const txns = currentTransactions;
   const flags = data.flags || [];
   statusEl.textContent = txns.length + ' transactions categorized · ' + flags.length + ' items flagged for checkup';
-  subEl.textContent = 'AI confidence: ' + (data.confidence || 96) + '% · ' + (data.month || 'This Month');
+  subEl.textContent = 'AI confidence: ' + (data.confidence || 96) + '% · ' + (currentMonth || 'This Month');
 
-  const s = data.summary || {};
   const revenue = s.revenue || 0;
   const expenses = Math.abs(s.expenses || 0);
   const net = s.netIncome || (revenue - expenses);
@@ -1036,15 +1038,16 @@ function switchReport(tab) {
 // ── Balance sheet ──
 function buildBalanceSheet() {
   const parse = id => parseFloat((document.getElementById(id).value || '0').replace(/,/g,'')) || 0;
-  const checking = parse('bs-checking') || 28400;
-  const savings   = parse('bs-savings')  || 15000;
-  const ar        = parse('bs-ar')       || 8750;
-  const equip     = parse('bs-equip')    || 42000;
-  const ap        = parse('bs-ap')       || 3200;
-  const cc        = parse('bs-cc')       || 1840;
-  const loan      = parse('bs-loan')     || 35000;
-  const priorEquity = parse('bs-equity') || 54310;
-  const netIncome = analyzed ? 20171 : 0;
+  const checking    = parse('bs-checking');
+  const savings     = parse('bs-savings');
+  const ar          = parse('bs-ar');
+  const equip       = parse('bs-equip');
+  const ap          = parse('bs-ap');
+  const cc          = parse('bs-cc');
+  const loan        = parse('bs-loan');
+  const priorEquity = parse('bs-equity');
+  const netIncome   = analyzed ? currentNetIncome : 0;
+  const bsDate      = currentMonth ? currentMonth.split(' ').pop() + ' 30, ' + currentMonth.split(' ').pop() : 'Current Period';
 
   const totalCurrentAssets = checking + savings + ar;
   const totalAssets = totalCurrentAssets + equip;
@@ -1065,7 +1068,7 @@ function buildBalanceSheet() {
     <div class="bs-two-col">
       <div class="panel visible">
         <div class="panel-header">
-          <div><div class="panel-title">Assets</div><div class="panel-sub">October 31, 2024</div></div>
+          <div><div class="panel-title">Assets</div><div class="panel-sub">${currentMonth || 'Current Period'}</div></div>
         </div>
         <div class="bs-section-header">Current Assets</div>
         ${bsRow('Checking Account', checking, '', true)}
@@ -1079,7 +1082,7 @@ function buildBalanceSheet() {
       <div>
         <div class="panel visible">
           <div class="panel-header">
-            <div><div class="panel-title">Liabilities &amp; Equity</div><div class="panel-sub">October 31, 2024</div></div>
+            <div><div class="panel-title">Liabilities &amp; Equity</div><div class="panel-sub">${currentMonth || 'Current Period'}</div></div>
           </div>
           <div class="bs-section-header">Current Liabilities</div>
           ${bsRow('Accounts Payable', ap, '', true)}
@@ -1090,7 +1093,7 @@ function buildBalanceSheet() {
           ${bsRow('Total Liabilities', totalLiab, 'subtotal')}
           <div class="bs-section-header">Owner\'s Equity</div>
           ${bsRow('Prior Retained Earnings', priorEquity, '', true)}
-          ${bsRow('Net Income (Oct 2024)', netIncome, '', true)}
+          ${bsRow('Net Income (' + (currentMonth || 'This Period') + ')', netIncome, '', true)}
           ${bsRow('Total Equity', totalEquity, 'subtotal')}
           ${bsRow('Total Liabilities + Equity', totalLiabEquity, 'total')}
         </div>
@@ -1138,7 +1141,22 @@ function saveDraft() {
 
 function exportData() {
   if (!analyzed) { showToast('⚠ Run analysis first to export'); return; }
-  showToast('↓ Exporting October 2024 P&L as CSV…');
+  if (!currentTransactions.length) { showToast('No transactions to export'); return; }
+  let csv = 'Date,Description,Category,Amount\n';
+  currentTransactions.forEach(t => {
+    const cat = CAT_LABELS[t.cat] || t.cat;
+    csv += '"' + t.date + '","' + t.desc.replace(/"/g,'""') + '","' + cat + '","' + t.amount + '"\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'smartbookkeeper-' + (currentMonth || 'export').replace(/\s/g,'-') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('↓ Exported!');
 }
 
 function filterTransactions() {
@@ -1175,7 +1193,7 @@ const LEGAL = {
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">7. GLBA Notice</h3>
       <p>As a CPA-operated financial service, SmartBookkeeper is subject to the Gramm-Leach-Bliley Act. We do not share your nonpublic personal financial information with nonaffiliated third parties for marketing purposes.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">8. Your Rights</h3>
-      <p>You may request access, correction, deletion, or export of your data at any time. Contact us at [YOUR EMAIL ADDRESS]. We will respond within 30 days.</p>
+      <p>You may request access, correction, deletion, or export of your data at any time. Contact us at jeremiah@dimelercpa.com. We will respond within 30 days.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">9. Data Retention</h3>
       <p>Data is retained while your account is active and deleted within 90 days of account closure, except CPA Checkup records which may be retained up to 7 years per Idaho CPA recordkeeping requirements.</p>
       <p style="font-size:12px;color:var(--ink-3);margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">Full legal document available upon request.</p>
@@ -1201,7 +1219,7 @@ const LEGAL = {
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">6. Your Data</h3>
       <p>You retain full ownership of all uploaded financial data. We claim no ownership rights over your information.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">7. Limitation of Liability</h3>
-      <p style="font-size:12.5px;color:#555">TO THE MAXIMUM EXTENT PERMITTED BY LAW, LEDGERAI SHALL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES. OUR TOTAL LIABILITY SHALL NOT EXCEED AMOUNTS PAID IN THE PRECEDING 12 MONTHS.</p>
+      <p style="font-size:12.5px;color:#555">TO THE MAXIMUM EXTENT PERMITTED BY LAW, SMARTBOOKKEEPER SHALL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES. OUR TOTAL LIABILITY SHALL NOT EXCEED AMOUNTS PAID IN THE PRECEDING 12 MONTHS.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">8. Governing Law</h3>
       <p>These Terms are governed by Idaho law. Disputes resolved by binding arbitration in Idaho under AAA rules. Class action waiver applies.</p>
       <p style="font-size:12px;color:var(--ink-3);margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">Full legal document available upon request.</p>
@@ -1230,6 +1248,16 @@ window.addEventListener('load', () => {
   document.querySelectorAll('.metric-card').forEach(c => {
     setTimeout(() => c.classList.add('visible'), 200);
   });
+
+  // Restore last session from localStorage
+  try {
+    const saved = localStorage.getItem('sbk_results');
+    if (saved) {
+      const data = JSON.parse(saved);
+      showResults(data);
+      showToast('✓ Last session restored');
+    }
+  } catch(e) {}
 });
 </script>
 </body>
