@@ -607,7 +607,7 @@
         <div class="ai-bar-left">
           <div class="ai-pulse">✦</div>
           <div>
-            <div class="ai-text" id="ai-status">Ready to analyze your October books</div>
+            <div class="ai-text" id="ai-status">Ready to analyze your books</div>
             <div class="ai-sub" id="ai-sub">Upload a bank CSV or Excel file above, then click Analyze</div>
           </div>
         </div>
@@ -640,6 +640,18 @@
           <div class="metric-value" id="mc-tax-val">—</div>
           <div class="metric-delta" id="mc-tax-delta"><span style="font-size:10px;background:var(--amber-light);color:var(--amber);padding:2px 6px;border-radius:3px;font-family:var(--font-mono)">Upsell: Full Estimate</span></div>
         </div>
+      </div>
+
+      <!-- Month History / YTD -->
+      <div id="ytd-section" style="display:none;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--ink)">Month History</div>
+            <div style="font-size:11px;color:var(--ink-3);font-family:var(--font-mono);margin-top:1px">Year-to-date · Click a month to view</div>
+          </div>
+          <div id="ytd-totals" style="display:flex;gap:20px;font-family:var(--font-mono);font-size:12px;color:var(--ink-3)"></div>
+        </div>
+        <div id="month-history" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
       </div>
 
       <!-- Report tabs -->
@@ -725,7 +737,7 @@
           <div class="bs-prompt">
             <div class="bs-prompt-icon">⊟</div>
             <div class="bs-prompt-title">Generate Balance Sheet</div>
-            <div class="bs-prompt-sub">Enter your asset and liability balances as of October 31, 2024.<br>Net income from your P&amp;L will be pulled in automatically.</div>
+            <div class="bs-prompt-sub" id="bs-prompt-sub">Enter your asset and liability balances for the current period.<br>Net income from your P&amp;L will be pulled in automatically.</div>
             <div class="bs-fields">
               <div class="bs-field"><label>Checking Account</label><input id="bs-checking" type="text" placeholder="e.g. 28,400"></div>
               <div class="bs-field"><label>Savings Account</label><input id="bs-savings" type="text" placeholder="e.g. 15,000"></div>
@@ -972,18 +984,81 @@ async function acceptEngagement() {
   loadLastAnalysis();
 }
 
+function buildYTDView(allData) {
+  if (!allData || allData.length === 0) return;
+  const section = document.getElementById('ytd-section');
+  const historyEl = document.getElementById('month-history');
+  const totalsEl = document.getElementById('ytd-totals');
+  section.style.display = 'block';
+
+  // Aggregate YTD totals
+  let ytdRevenue = 0, ytdExpenses = 0;
+  allData.forEach(a => {
+    const s = a.result_json?.summary || {};
+    ytdRevenue  += (s.revenue  || 0);
+    ytdExpenses += (s.expenses || 0);
+  });
+  const ytdNet = ytdRevenue - ytdExpenses;
+  const fmt = n => '$' + Math.abs(Math.round(n)).toLocaleString();
+  totalsEl.innerHTML = `
+    <span style="color:var(--moss)">↑ ${fmt(ytdRevenue)} revenue</span>
+    <span>↓ ${fmt(ytdExpenses)} expenses</span>
+    <span style="color:${ytdNet >= 0 ? 'var(--moss)' : 'var(--red)'}">= ${fmt(ytdNet)} net</span>
+  `;
+
+  // Month pills
+  historyEl.innerHTML = allData.map((a, i) => `
+    <button onclick="loadMonthAnalysis('${a.id}')"
+      style="padding:6px 14px;border-radius:20px;border:1.5px solid ${i === 0 ? 'var(--moss)' : 'var(--rule)'};
+             background:${i === 0 ? 'var(--moss-light)' : '#fff'};
+             color:${i === 0 ? 'var(--moss)' : 'var(--ink-2)'};
+             font-size:12px;font-family:var(--font-mono);cursor:pointer;font-weight:${i === 0 ? '600' : '400'}"
+      id="month-pill-${a.id}">
+      ${a.month || 'Unknown'}
+    </button>
+  `).join('');
+}
+
+let allAnalysesCache = [];
+
+async function loadMonthAnalysis(id) {
+  if (!currentUser) return;
+  // Try cache first
+  let found = allAnalysesCache.find(a => a.id === id);
+  if (!found) {
+    const { data } = await sbClient.from('analyses').select('id, month, result_json').eq('id', id).single();
+    found = data;
+  }
+  if (found) {
+    showResults(found.result_json);
+    // Update pill active state
+    document.querySelectorAll('[id^="month-pill-"]').forEach(p => {
+      const isActive = p.id === 'month-pill-' + id;
+      p.style.border = '1.5px solid ' + (isActive ? 'var(--moss)' : 'var(--rule)');
+      p.style.background = isActive ? 'var(--moss-light)' : '#fff';
+      p.style.color = isActive ? 'var(--moss)' : 'var(--ink-2)';
+      p.style.fontWeight = isActive ? '600' : '400';
+    });
+  }
+}
+
 async function loadLastAnalysis() {
   if (!currentUser) return;
-  const { data } = await supabase
+
+  // Load ALL analyses for YTD view
+  const { data: allData } = await sbClient
     .from('analyses')
-    .select('result_json, created_at')
+    .select('id, month, result_json, created_at')
     .eq('client_id', currentUser.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  if (data) {
-    showResults(data.result_json);
+    .order('created_at', { ascending: false });
+
+  if (allData && allData.length > 0) {
+    allAnalysesCache = allData;
+    // Show most recent month
+    showResults(allData[0].result_json);
     showToast('✓ Last session restored');
+    // Build YTD view
+    buildYTDView(allData);
     return;
   }
   try {
@@ -1170,8 +1245,21 @@ function showResults(data) {
       client_id: currentUser.id,
       month: data.month || 'Unknown',
       result_json: data
-    }).then(({ error }) => {
-      if (!error) showToast('✦ Analysis saved to your account');
+    }).then(({ error, data: inserted }) => {
+      if (!error) {
+        showToast('✦ Analysis saved to your account');
+        // Refresh YTD view with updated history
+        sbClient.from('analyses')
+          .select('id, month, result_json, created_at')
+          .eq('client_id', currentUser.id)
+          .order('created_at', { ascending: false })
+          .then(({ data: allData }) => {
+            if (allData) {
+              allAnalysesCache = allData;
+              buildYTDView(allData);
+            }
+          });
+      }
     });
   }
 
@@ -1623,6 +1711,14 @@ window.addEventListener('load', () => {
   document.querySelectorAll('.metric-card').forEach(c => {
     setTimeout(() => c.classList.add('visible'), 200);
   });
+
+  // Set dynamic current month in the analyze prompt
+  const now = new Date();
+  const monthStr = now.toLocaleString('default', { month: 'long' }) + ' ' + now.getFullYear();
+  document.getElementById('ai-status').textContent = 'Ready to analyze your ' + monthStr + ' books';
+  const bsPrompt = document.getElementById('bs-prompt-sub');
+  if (bsPrompt) bsPrompt.innerHTML = 'Enter your asset and liability balances as of ' + monthStr + '.<br>Net income from your P&L will be pulled in automatically.';
+
   initAuth();
 });
 </script>
