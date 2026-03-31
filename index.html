@@ -841,20 +841,20 @@
 // ── Supabase ──
 const SUPA_URL  = 'https://xqmshvszmkktgxaqhxmd.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxbXNodnN6bWtrdGd4YXFoeG1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjE3NTYsImV4cCI6MjA5MDQ5Nzc1Nn0.-r2jU0_0XUf6UmhVxlTb5WaBeyETUCW8Kd6UdQBg4ns';
-const supabase  = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+const sbClient  = window.supabase.createClient(SUPA_URL, SUPA_ANON);
 
 let currentUser = null;
 let currentClientRow = null;
 
 async function initAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sbClient.auth.getSession();
   if (session) {
     await onSignIn(session.user);
   } else {
     const modal = document.getElementById('auth-modal');
     modal.style.display = 'flex';
   }
-  supabase.auth.onAuthStateChange(async (event, session) => {
+  sbClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session) {
       await onSignIn(session.user);
     }
@@ -869,7 +869,7 @@ async function initAuth() {
 async function onSignIn(user) {
   currentUser = user;
   document.getElementById('auth-modal').style.display = 'none';
-  const { data } = await supabase.from('clients').select('*').eq('id', user.id).single();
+  const { data } = await sbClient.from('clients').select('*').eq('id', user.id).single();
   currentClientRow = data;
   if (data) {
     const nameEl = document.getElementById('sidebar-client-name');
@@ -933,7 +933,7 @@ async function sendMagicLink() {
   if (!email) return;
   const errEl = document.getElementById('auth-error');
   errEl.style.display = 'none';
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await sbClient.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: window.location.href }
   });
@@ -946,7 +946,7 @@ async function sendMagicLink() {
 }
 
 function signOut() {
-  supabase.auth.signOut();
+  sbClient.auth.signOut();
 }
 
 function showEngagementModal() {
@@ -960,7 +960,7 @@ async function acceptEngagement() {
     showToast('⚠ Please check the box to agree');
     return;
   }
-  const { error } = await supabase.from('clients')
+  const { error } = await sbClient.from('clients')
     .update({ engagement_accepted_at: new Date().toISOString() })
     .eq('id', currentUser.id);
   if (error) {
@@ -1019,7 +1019,7 @@ async function loadAdminSubmissions() {
 
 async function markReviewed(analysisId, btn) {
   btn.disabled = true;
-  await supabase.from('analyses').update({ status: 'reviewed' }).eq('id', analysisId);
+  await sbClient.from('analyses').update({ status: 'reviewed' }).eq('id', analysisId);
   btn.textContent = '✓ Reviewed';
   btn.style.color = 'var(--moss)';
 }
@@ -1166,7 +1166,7 @@ function showResults(data) {
   // Save to localStorage
   try { localStorage.setItem('sbk_results', JSON.stringify(data)); } catch(e) {}
   if (currentUser) {
-    supabase.from('analyses').insert({
+    sbClient.from('analyses').insert({
       client_id: currentUser.id,
       month: data.month || 'Unknown',
       result_json: data
@@ -1456,7 +1456,7 @@ async function saveDraft() {
     .limit(1)
     .single();
   if (!latest) { showToast('⚠ No analysis to attach draft to'); return; }
-  await supabase.from('analyses').update({ client_note: note }).eq('id', latest.id);
+  await sbClient.from('analyses').update({ client_note: note }).eq('id', latest.id);
   showToast('✓ Draft saved');
 }
 
