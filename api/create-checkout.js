@@ -1,0 +1,45 @@
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { email, userId } = req.body || {};
+  if (!email || !userId) return res.status(400).json({ error: 'Missing email or userId' });
+
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  const priceId   = process.env.STRIPE_PRICE_ID;
+  const baseUrl   = 'https://project-1gtqu.vercel.app';
+  const authHeader = 'Basic ' + Buffer.from(stripeKey + ':').toString('base64');
+
+  try {
+    const params = new URLSearchParams({
+      'payment_method_types[0]': 'card',
+      'line_items[0][price]':    priceId,
+      'line_items[0][quantity]': '1',
+      'mode':                    'subscription',
+      'success_url':             `${baseUrl}?subscribed=true`,
+      'cancel_url':              `${baseUrl}?cancelled=true`,
+      'customer_email':          email,
+      'client_reference_id':     userId,
+      'metadata[userId]':        userId
+    });
+
+    const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+      method: 'POST',
+      headers: {
+        'Authorization':  authHeader,
+        'Content-Type':   'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    const session = await response.json();
+    if (!response.ok) return res.status(500).json({ error: session.error?.message || 'Stripe error' });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
