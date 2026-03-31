@@ -7,6 +7,8 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -539,11 +541,18 @@
         <span class="nav-icon">✓</span> CPA Checkup
         <span style="margin-left:auto;background:var(--amber);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;font-family:var(--font-mono);">1</span>
       </div>
+      <div class="nav-item" id="admin-nav" style="display:none" onclick="document.getElementById('admin-panel').scrollIntoView({behavior:'smooth'})">
+        <span class="nav-icon">⊛</span> Admin View
+      </div>
     </nav>
     <div class="sidebar-footer">
       <div class="client-badge">
         <div class="client-name" id="sidebar-client-name">Your Business</div>
         <div class="client-plan" id="sidebar-period">Upload data to analyze</div>
+      </div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+        <a href="#" onclick="showLegal('engagement');return false;" style="font-size:11px;color:rgba(255,255,255,0.3);text-decoration:none;font-family:var(--font-body)">Engagement Letter</a>
+        <button onclick="signOut()" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:11px;cursor:pointer;padding:0;font-family:var(--font-body);text-align:left;">Sign out</button>
       </div>
     </div>
   </aside>
@@ -599,7 +608,7 @@
           <div class="ai-pulse">✦</div>
           <div>
             <div class="ai-text" id="ai-status">Ready to analyze your October books</div>
-            <div class="ai-sub" id="ai-sub">Upload files above or use the demo data to get started</div>
+            <div class="ai-sub" id="ai-sub">Upload a bank CSV or Excel file above, then click Analyze</div>
           </div>
         </div>
         <div class="progress-wrap" id="ai-progress">
@@ -732,6 +741,15 @@
         </div>
       </div>
 
+      <!-- Admin Panel (CPA only) -->
+      <div id="admin-panel" style="display:none;padding:32px 0;">
+        <div style="font-family:var(--font-display);font-size:22px;margin-bottom:4px;">CPA Admin View</div>
+        <div style="font-size:11px;color:var(--ink-3);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:24px;">All client submissions</div>
+        <div id="admin-submissions" style="background:#fff;border:1px solid var(--rule);border-radius:var(--radius-lg);overflow:hidden;">
+          <div style="padding:20px;color:var(--ink-3);font-size:13px;">Loading submissions…</div>
+        </div>
+      </div>
+
     </div><!-- end content -->
 
 <!-- Footer -->
@@ -758,20 +776,264 @@
   </div>
 </div>
 
+<!-- Auth Modal -->
+<div id="auth-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;width:420px;padding:36px;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="font-family:var(--font-display);font-size:24px;margin-bottom:4px;color:var(--ink)">SmartBookkeeper</div>
+    <div style="font-size:13px;color:var(--ink-3);margin-bottom:28px;font-family:var(--font-mono)">Enter your email to sign in</div>
+    <div id="auth-error" style="display:none;background:var(--red-light);color:var(--red);padding:10px 12px;border-radius:4px;font-size:13px;margin-bottom:14px"></div>
+    <input id="auth-email" type="email" placeholder="you@yourbusiness.com"
+      style="width:100%;padding:11px 14px;border:1.5px solid var(--paper-3);border-radius:var(--radius);font-size:14px;margin-bottom:12px;outline:none;font-family:var(--font-body);color:var(--ink)">
+    <button onclick="sendMagicLink()" style="width:100%;padding:11px;background:var(--moss);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
+      Send Sign-in Link
+    </button>
+    <div id="auth-sent" style="display:none;margin-top:16px;text-align:center;font-size:13px;color:var(--moss)">
+      ✓ Check your email — a sign-in link was sent!
+    </div>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--rule);font-size:11px;color:var(--ink-3);text-align:center">
+      By signing in you agree to our <a href="#" onclick="showLegal('terms')" style="color:var(--ink-3)">Terms</a> and <a href="#" onclick="showLegal('privacy')" style="color:var(--ink-3)">Privacy Policy</a>
+    </div>
+  </div>
+</div>
+
+<!-- Engagement Letter Modal -->
+<div id="engagement-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:301;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;width:600px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="padding:24px 28px;border-bottom:1px solid var(--rule);">
+      <div style="font-family:var(--font-display);font-size:20px;color:var(--ink)">Client Engagement Letter</div>
+      <div style="font-size:12px;color:var(--ink-3);margin-top:2px">Please read and agree before continuing</div>
+    </div>
+    <div style="padding:20px 28px;overflow-y:auto;flex:1;font-size:13.5px;line-height:1.7;color:var(--ink-2)" id="engagement-body"></div>
+    <div style="padding:20px 28px;border-top:1px solid var(--rule);background:#fafaf8;border-radius:0 0 12px 12px;">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:16px;font-size:13px;">
+        <input type="checkbox" id="engagement-check" style="margin-top:3px;width:16px;height:16px;flex-shrink:0">
+        <span>I have read and agree to the Engagement Letter, Privacy Policy, and Terms of Service.</span>
+      </label>
+      <button onclick="acceptEngagement()" style="width:100%;padding:11px;background:var(--moss);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-body)">
+        I Agree &amp; Continue
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Subscribe Modal -->
+<div id="subscribe-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:302;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;width:440px;padding:36px;box-shadow:0 8px 40px rgba(0,0,0,0.2);text-align:center;">
+    <div style="font-size:32px;margin-bottom:12px">✦</div>
+    <div style="font-family:var(--font-display);font-size:22px;margin-bottom:8px;color:var(--ink)">Subscribe to SmartBookkeeper</div>
+    <div style="font-size:13.5px;color:var(--ink-3);margin-bottom:24px;line-height:1.6">Get AI-powered bookkeeping and a monthly CPA Checkup from Jeremiah Dimeler, CPA.</div>
+    <div id="subscribe-error" style="display:none;background:var(--red-light);color:var(--red);padding:10px 12px;border-radius:4px;font-size:13px;margin-bottom:14px;text-align:left"></div>
+    <button onclick="startCheckout()" id="subscribe-btn" style="width:100%;padding:13px;background:var(--moss);color:#fff;border:none;border-radius:var(--radius);font-size:15px;font-weight:600;cursor:pointer;font-family:var(--font-body);margin-bottom:12px">
+      Subscribe Now
+    </button>
+    <div style="font-size:11px;color:var(--ink-3)">Billed monthly · Cancel anytime · Powered by Stripe</div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--rule)">
+      <button onclick="signOut()" style="background:none;border:none;color:var(--ink-3);font-size:12px;cursor:pointer;font-family:var(--font-body)">Sign out</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
 
+// ── Supabase ──
+const SUPA_URL  = 'https://xqmshvszmkktgxaqhxmd.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxbXNodnN6bWtrdGd4YXFoeG1kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MjE3NTYsImV4cCI6MjA5MDQ5Nzc1Nn0.-r2jU0_0XUf6UmhVxlTb5WaBeyETUCW8Kd6UdQBg4ns';
+const supabase  = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+
+let currentUser = null;
+let currentClientRow = null;
+
+async function initAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    await onSignIn(session.user);
+  } else {
+    const modal = document.getElementById('auth-modal');
+    modal.style.display = 'flex';
+  }
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      await onSignIn(session.user);
+    }
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      currentClientRow = null;
+      document.getElementById('auth-modal').style.display = 'flex';
+    }
+  });
+}
+
+async function onSignIn(user) {
+  currentUser = user;
+  document.getElementById('auth-modal').style.display = 'none';
+  const { data } = await supabase.from('clients').select('*').eq('id', user.id).single();
+  currentClientRow = data;
+  if (data) {
+    const nameEl = document.getElementById('sidebar-client-name');
+    if (nameEl) nameEl.textContent = data.business_name;
+    if (data.is_admin) {
+      document.getElementById('admin-nav').style.display = 'flex';
+      document.getElementById('admin-panel').style.display = 'block';
+      loadAdminSubmissions();
+      loadLastAnalysis();
+      return;
+    }
+    // Check subscription (skip if just returned from Stripe)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscribed') === 'true') {
+      window.history.replaceState({}, '', window.location.pathname);
+      showToast('✓ Subscription active — welcome!');
+    } else if (data.subscription_status !== 'active') {
+      document.getElementById('subscribe-modal').style.display = 'flex';
+      return;
+    }
+    if (!data.engagement_accepted_at) {
+      showEngagementModal();
+    } else {
+      loadLastAnalysis();
+    }
+  }
+}
+
+async function startCheckout() {
+  if (!currentUser) return;
+  const btn = document.getElementById('subscribe-btn');
+  const errEl = document.getElementById('subscribe-error');
+  btn.textContent = 'Redirecting…';
+  btn.disabled = true;
+  errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentUser.email, userId: currentUser.id })
+    });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      errEl.textContent = data.error || 'Could not start checkout';
+      errEl.style.display = 'block';
+      btn.textContent = 'Subscribe Now';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    btn.textContent = 'Subscribe Now';
+    btn.disabled = false;
+  }
+}
+
+async function sendMagicLink() {
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) return;
+  const errEl = document.getElementById('auth-error');
+  errEl.style.display = 'none';
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = 'block';
+  } else {
+    document.getElementById('auth-sent').style.display = 'block';
+  }
+}
+
+function signOut() {
+  supabase.auth.signOut();
+}
+
+function showEngagementModal() {
+  document.getElementById('engagement-body').innerHTML = LEGAL.engagement.body;
+  const modal = document.getElementById('engagement-modal');
+  modal.style.display = 'flex';
+}
+
+async function acceptEngagement() {
+  if (!document.getElementById('engagement-check').checked) {
+    showToast('⚠ Please check the box to agree');
+    return;
+  }
+  const { error } = await supabase.from('clients')
+    .update({ engagement_accepted_at: new Date().toISOString() })
+    .eq('id', currentUser.id);
+  if (error) {
+    showToast('⚠ Could not save agreement — ' + error.message);
+    return;
+  }
+  document.getElementById('engagement-modal').style.display = 'none';
+  if (currentClientRow) currentClientRow.engagement_accepted_at = new Date().toISOString();
+  loadLastAnalysis();
+}
+
+async function loadLastAnalysis() {
+  if (!currentUser) return;
+  const { data } = await supabase
+    .from('analyses')
+    .select('result_json, created_at')
+    .eq('client_id', currentUser.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (data) {
+    showResults(data.result_json);
+    showToast('✓ Last session restored');
+    return;
+  }
+  try {
+    const saved = localStorage.getItem('sbk_results');
+    if (saved) { showResults(JSON.parse(saved)); }
+  } catch(e) {}
+}
+
+async function loadAdminSubmissions() {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('id, month, status, client_note, created_at, clients(business_name, email)')
+    .order('created_at', { ascending: false });
+  if (error || !data || data.length === 0) {
+    document.getElementById('admin-submissions').innerHTML = '<div style="padding:24px;color:var(--ink-3);font-size:13px;">No submissions yet.</div>';
+    return;
+  }
+  const rows = data.map(row => `
+    <div style="padding:16px 20px;border-bottom:1px solid var(--rule);display:flex;align-items:flex-start;gap:16px;">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13.5px">${row.clients?.business_name || 'Unknown'}</div>
+        <div style="font-size:11px;color:var(--ink-3);font-family:var(--font-mono);margin-top:2px">${row.month} · ${row.clients?.email || ''}</div>
+        ${row.client_note ? '<div style="font-size:12px;color:var(--ink-2);margin-top:8px;background:var(--paper-2);padding:8px 10px;border-radius:4px;">' + row.client_note + '</div>' : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <span style="font-size:11px;font-family:var(--font-mono);padding:3px 8px;border-radius:20px;background:${row.status === 'reviewed' ? 'var(--moss-light)' : 'var(--amber-light)'};color:${row.status === 'reviewed' ? 'var(--moss)' : 'var(--amber)'}">${row.status}</span>
+        <button onclick="markReviewed('${row.id}', this)" style="font-size:12px;padding:4px 10px;border:1px solid var(--rule);border-radius:var(--radius);background:#fff;cursor:pointer;font-family:var(--font-body)">Mark Reviewed</button>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('admin-submissions').innerHTML = rows;
+}
+
+async function markReviewed(analysisId, btn) {
+  btn.disabled = true;
+  await supabase.from('analyses').update({ status: 'reviewed' }).eq('id', analysisId);
+  btn.textContent = '✓ Reviewed';
+  btn.style.color = 'var(--moss)';
+}
+
 const CAT_LABELS = {
   revenue: 'Revenue', office: 'Office', meals: 'Meals & Ent.', software: 'Software',
-  travel: 'Travel', payroll: 'Payroll', misc: 'Insurance', other: 'Subcontract'
+  travel: 'Travel', payroll: 'Payroll', misc: 'Insurance', other: 'Subcontract',
+  scorp_personal: 'S Corp Personal'
 };
 
 const CAT_CLASSES = {
   revenue:'cat-revenue', office:'cat-office', meals:'cat-meals',
   software:'cat-software', travel:'cat-travel', payroll:'cat-payroll',
-  misc:'cat-misc', other:'cat-other'
+  misc:'cat-misc', other:'cat-other', scorp_personal:'cat-misc'
 };
 
 let analyzed = false;
@@ -863,9 +1125,28 @@ function runAnalysis() {
   const file = (csvInput && csvInput.files[0]) || (bankInput && bankInput.files[0]);
 
   if (file) {
+    const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
     const reader = new FileReader();
-    reader.onload = e => doAnalysis(e.target.result);
-    reader.readAsText(file);
+    if (isExcel) {
+      reader.onload = e => {
+        try {
+          const workbook = XLSX.read(e.target.result, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const csvText = XLSX.utils.sheet_to_csv(firstSheet);
+          doAnalysis(csvText);
+        } catch(err) {
+          clearInterval(interval);
+          progress.classList.remove('active');
+          btn.disabled = false;
+          btn.textContent = '✦ Analyze with AI';
+          showToast('⚠ Could not read Excel file — try saving as CSV first');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.onload = e => doAnalysis(e.target.result);
+      reader.readAsText(file);
+    }
   } else {
     clearInterval(interval);
     progress.classList.remove('active');
@@ -884,6 +1165,15 @@ function showResults(data) {
 
   // Save to localStorage
   try { localStorage.setItem('sbk_results', JSON.stringify(data)); } catch(e) {}
+  if (currentUser) {
+    supabase.from('analyses').insert({
+      client_id: currentUser.id,
+      month: data.month || 'Unknown',
+      result_json: data
+    }).then(({ error }) => {
+      if (!error) showToast('✦ Analysis saved to your account');
+    });
+  }
 
   // Update dynamic labels
   if (currentMonth) {
@@ -1131,12 +1421,43 @@ function requestCPACheckup() {
   document.getElementById('cpa-note').focus();
 }
 
-function submitCheckup() {
-  showToast('✓ Checkup request sent to your CPA! You\'ll hear back within 24 hours.');
+async function submitCheckup() {
+  if (!analyzed) { showToast('⚠ Run analysis first'); return; }
+  if (!currentUser) { showToast('⚠ Please sign in first'); return; }
+  const note = document.getElementById('cpa-note').value.trim();
+  const { data: latest } = await supabase
+    .from('analyses')
+    .select('id')
+    .eq('client_id', currentUser.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (!latest) { showToast('⚠ No saved analysis found — analyze first'); return; }
+  const { error } = await supabase
+    .from('analyses')
+    .update({ client_note: note, status: 'pending' })
+    .eq('id', latest.id);
+  if (error) {
+    showToast('⚠ Could not send checkup — ' + error.message);
+  } else {
+    showToast('✓ Checkup request sent! You\'ll hear back within 24 hours.');
+    document.getElementById('cpa-note').value = '';
+  }
 }
 
-function saveDraft() {
-  showToast('Draft saved');
+async function saveDraft() {
+  if (!currentUser) { showToast('⚠ Please sign in first'); return; }
+  const note = document.getElementById('cpa-note').value.trim();
+  const { data: latest } = await supabase
+    .from('analyses')
+    .select('id')
+    .eq('client_id', currentUser.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (!latest) { showToast('⚠ No analysis to attach draft to'); return; }
+  await supabase.from('analyses').update({ client_note: note }).eq('id', latest.id);
+  showToast('✓ Draft saved');
 }
 
 function exportData() {
@@ -1186,8 +1507,13 @@ const LEGAL = {
       <p>We collect account information (name, email, business name), financial data you upload (bank statements, receipts, transaction records), and usage data. We do not collect SSNs, EINs, or government IDs. Payment is processed by Stripe — we never see your full card number.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">4. How We Use Your Information</h3>
       <p>To provide the Service, categorize transactions with AI, facilitate CPA Checkup requests, process payments, and comply with applicable law including GLBA.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">4a. AI Processing Disclosure</h3>
+      <div style="background:#fdf3e3;border-left:3px solid #c47f2a;padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:8px">
+        When you click "Analyze with AI," your uploaded transaction data is transmitted to Anthropic, PBC (makers of Claude AI) for processing. Anthropic receives the text of your bank transactions solely to perform the categorization service. Per Anthropic's API usage policy (effective as of the date above), Anthropic does not use API-submitted data to train its models and does not retain your data beyond the duration of the API request. You can review Anthropic's privacy policy at anthropic.com/privacy.
+      </div>
+      <p>By using SmartBookkeeper, you expressly consent to this transmission of your financial transaction data to Anthropic for AI processing purposes.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">5. We Do Not Sell Your Data</h3>
-      <p>We do not sell your personal or financial data. We share data only with service providers (Supabase, Anthropic, Stripe, Vercel) necessary to operate the Service. Anthropic does not retain or train on API data.</p>
+      <p>We do not sell your personal or financial data. We share data only with the following service providers necessary to operate the Service: <strong>Supabase</strong> (database and authentication), <strong>Anthropic</strong> (AI transaction analysis — see Section 4a), <strong>Stripe</strong> (payment processing), and <strong>Vercel</strong> (application hosting). Each provider is contractually bound to protect your data.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">6. Data Security</h3>
       <p>All data is encrypted in transit (TLS) and at rest (AES-256). Each client's data is isolated through database-level Row Level Security policies.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">7. GLBA Notice</h3>
@@ -1199,6 +1525,54 @@ const LEGAL = {
       <p style="font-size:12px;color:var(--ink-3);margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">Full legal document available upon request.</p>
     `
   },
+  engagement: {
+    title: 'Client Engagement Letter',
+    body: `
+      <p style="font-size:12px;color:var(--ink-3);margin-bottom:16px">SmartBookkeeper · Jeremiah Dimeler, CPA · State of Idaho · jeremiah@dimelercpa.com</p>
+      <p style="margin-bottom:14px">This Engagement Letter ("Agreement") describes the services SmartBookkeeper will provide to you ("Client") and the terms under which those services are delivered. Please read it carefully. You must agree to these terms before accessing the Service.</p>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">1. Scope of Services</h3>
+      <p>SmartBookkeeper will provide the following services:</p>
+      <ul style="padding-left:18px;margin-top:6px;font-size:14px;line-height:1.8">
+        <li><strong>AI-Assisted Bookkeeping:</strong> Automated categorization of your uploaded bank transactions using Claude AI (Anthropic). Output is a categorized transaction ledger, Profit &amp; Loss summary, and tax estimate.</li>
+        <li><strong>CPA Checkup:</strong> A licensed CPA (Jeremiah Dimeler) will review your AI-generated results, respond to your submitted questions, and provide written consulting notes. Turnaround is typically 1–3 business days.</li>
+      </ul>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">2. Services NOT Included</h3>
+      <div style="background:#fdf3e3;border-left:3px solid #c47f2a;padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:8px">
+        This engagement does <strong>not</strong> include: tax return preparation or filing; formal audit, review, or compilation services; attest services of any kind as defined by AICPA standards; legal advice; payroll processing; or representation before the IRS or any taxing authority. These services require a separate engagement.
+      </div>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">3. AI Processing — Client Acknowledgment</h3>
+      <p>You acknowledge and agree that:</p>
+      <ul style="padding-left:18px;margin-top:6px;font-size:14px;line-height:1.8">
+        <li>Your financial transaction data will be transmitted to Anthropic, PBC for AI processing each time you run an analysis.</li>
+        <li>AI-generated categorizations may contain errors and are not guaranteed to be accurate.</li>
+        <li>You are solely responsible for reviewing all AI output before using it for any financial, tax, or business purpose.</li>
+        <li>SmartBookkeeper and Jeremiah Dimeler, CPA are not liable for errors in AI-generated output that you have not independently verified.</li>
+      </ul>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">4. Client Responsibilities</h3>
+      <p>You agree to: provide accurate and complete financial data; review AI output for errors before relying on it; notify us promptly of any inaccuracies; maintain your own copies of all financial records; and not use this Service as your sole method of financial recordkeeping.</p>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">5. Confidentiality</h3>
+      <p>Jeremiah Dimeler, CPA is bound by the AICPA Code of Professional Conduct and Idaho CPA licensing requirements regarding client confidentiality. Your financial information will not be shared with any third party except as necessary to operate the Service (Supabase, Anthropic, Stripe, Vercel) or as required by law.</p>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">6. Fees</h3>
+      <p>Services are billed monthly via Stripe at the rate disclosed at sign-up. The CPA Checkup is included in your subscription. Fees are subject to change with 30 days' notice.</p>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">7. Termination</h3>
+      <p>Either party may terminate this engagement at any time. You may cancel your subscription through account settings. Upon termination, your data will be retained for 90 days and then deleted, except CPA Checkup records which may be retained up to 7 years per Idaho CPA recordkeeping requirements.</p>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">8. Limitation of Liability</h3>
+      <p style="font-size:12.5px;color:#555">TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, SMARTBOOKKEEPER'S LIABILITY ARISING FROM THIS ENGAGEMENT SHALL NOT EXCEED THE TOTAL FEES PAID BY CLIENT IN THE THREE (3) MONTHS PRECEDING THE CLAIM. THIS LIMITATION APPLIES TO ALL CLAIMS ARISING FROM AI OUTPUT ERRORS, SERVICE INTERRUPTIONS, OR DATA LOSS.</p>
+
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">9. Governing Law</h3>
+      <p>This Agreement is governed by the laws of the State of Idaho. Any disputes shall be resolved by binding arbitration in Idaho under AAA rules.</p>
+
+      <p style="font-size:12px;color:var(--ink-3);margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)">By clicking "I Agree &amp; Continue" below, you acknowledge that you have read, understood, and agree to the terms of this Engagement Letter, our Privacy Policy, and our Terms of Service.</p>
+    `
+  },
   terms: {
     title: 'Terms of Service',
     body: `
@@ -1208,8 +1582,9 @@ const LEGAL = {
       </div>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">1. The Service</h3>
       <p>SmartBookkeeper provides AI-assisted bookkeeping automation and CPA Checkup consultations, operated by a sole proprietor CPA licensed in Idaho.</p>
-      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">2. Not a Substitute for Professional Advice</h3>
-      <p style="background:#fdf3e3;padding:10px 14px;border-radius:4px;border-left:3px solid #c47f2a">AI-generated outputs are not a substitute for professional accounting, tax, or legal advice. The CPA Checkup does NOT constitute a formal audit, review, compilation, or any attest service as defined by AICPA standards.</p>
+      <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">2. Nature of Services — Important Limitations</h3>
+      <p style="background:#fdf3e3;padding:10px 14px;border-radius:4px;border-left:3px solid #c47f2a;margin-bottom:8px">AI-generated outputs are not a substitute for professional accounting, tax, or legal advice. The CPA Checkup does NOT constitute a formal audit, review, compilation, or any attest service as defined by AICPA standards. Transaction categorizations are generated by artificial intelligence and must be reviewed by you for accuracy before relying on them for any financial, tax, or business decision.</p>
+      <p style="font-size:13px;color:var(--ink-2)">You acknowledge that: (a) AI categorization may contain errors; (b) you are responsible for reviewing and approving all AI-generated output; (c) SmartBookkeeper's CPA Checkup is a consulting service only; and (d) your financial transaction data will be processed by Anthropic's AI as described in our Privacy Policy, which you have read and agreed to.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">3. Invite-Only</h3>
       <p>Access is by invitation only. Invitations are non-transferable. We reserve the right to revoke any invitation or account at our discretion.</p>
       <h3 style="font-size:14px;font-weight:600;margin:16px 0 6px">4. Acceptable Use</h3>
@@ -1248,16 +1623,7 @@ window.addEventListener('load', () => {
   document.querySelectorAll('.metric-card').forEach(c => {
     setTimeout(() => c.classList.add('visible'), 200);
   });
-
-  // Restore last session from localStorage
-  try {
-    const saved = localStorage.getItem('sbk_results');
-    if (saved) {
-      const data = JSON.parse(saved);
-      showResults(data);
-      showToast('✓ Last session restored');
-    }
-  } catch(e) {}
+  initAuth();
 });
 </script>
 </body>
